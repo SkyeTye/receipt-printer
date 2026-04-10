@@ -33,9 +33,14 @@
       error.classList.add('hidden');
 
       try {
+        const data = {};
+        for (const id of ['daily_print_time','day_start','day_end','slot_size_minutes','week_wrapped_day','week_wrapped_time']) {
+          data[id] = document.getElementById(id).value;
+        }
         const res = await fetch('/api/settings', {
           method: 'POST',
-          body: new FormData(form),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
         });
         if (!res.ok) throw new Error();
         saved.classList.remove('hidden');
