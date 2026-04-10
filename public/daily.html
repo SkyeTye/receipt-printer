@@ -6,9 +6,6 @@
   <title>Daily Planner — Life Receipt</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // ── State ──────────────────────────────────────────────
-    let calendarConnected = false;
-
     // ── Helpers ────────────────────────────────────────────
     function showBanner(id, duration = 3000) {
       const el = document.getElementById(id);
@@ -23,17 +20,41 @@
       return m ? `${h}h ${m}m` : `${h}h`;
     }
 
+    // ── Preview ─────────────────────────────────────────────
+    async function loadPreview() {
+      const loading = document.getElementById('preview-loading');
+      const content = document.getElementById('preview-content');
+      const error   = document.getElementById('preview-error');
+
+      loading.classList.remove('hidden');
+      content.classList.add('hidden');
+      error.classList.add('hidden');
+
+      try {
+        const res  = await fetch('/api/daily-print/preview');
+        if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+        const { content: text } = await res.json();
+
+        document.getElementById('preview-text').textContent = text;
+        loading.classList.add('hidden');
+        content.classList.remove('hidden');
+      } catch (err) {
+        loading.classList.add('hidden');
+        error.textContent = `Could not load preview: ${err.message}`;
+        error.classList.remove('hidden');
+      }
+    }
+
     // ── Calendar status ────────────────────────────────────
     async function loadCalendarStatus() {
       const res = await fetch('/api/calendar/status');
       const { connected } = await res.json();
-      calendarConnected = connected;
 
       document.getElementById('cal-connected').classList.toggle('hidden', !connected);
       document.getElementById('cal-disconnected').classList.toggle('hidden', connected);
 
       const params = new URLSearchParams(window.location.search);
-      if (params.get('connected')) showBanner('cal-success-banner');
+      if (params.get('connected')) { showBanner('cal-success-banner'); loadPreview(); }
       if (params.get('error'))     showBanner('cal-error-banner');
       window.history.replaceState({}, '', '/daily');
     }
@@ -42,6 +63,7 @@
       if (!confirm('Disconnect Google Calendar?')) return;
       await fetch('/auth/google/disconnect', { method: 'POST' });
       loadCalendarStatus();
+      loadPreview();
     }
 
     // ── Time Blocks ─────────────────────────────────────────
@@ -82,78 +104,14 @@
       if (res.ok) {
         e.target.reset();
         loadTimeBlocks();
+        loadPreview();
       }
     }
 
     async function deleteBlock(id) {
       await fetch(`/api/time-blocks/${id}`, { method: 'DELETE' });
       loadTimeBlocks();
-    }
-
-    // ── Todos ───────────────────────────────────────────────
-    async function loadTodos() {
-      const res   = await fetch('/api/todos');
-      const todos = await res.json();
-
-      const incomplete = todos.filter(t => !t.completed);
-      const complete   = todos.filter(t =>  t.completed);
-
-      const list = document.getElementById('todos-list');
-
-      const renderTodo = (todo) => `
-        <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0 group ${todo.completed ? 'opacity-50' : ''}">
-          <button
-            onclick="toggleTodo(${todo.id})"
-            class="w-5 h-5 rounded border-2 ${todo.completed ? 'bg-gray-400 border-gray-400' : 'border-gray-300 hover:border-gray-500'} flex-shrink-0 flex items-center justify-center transition-colors"
-          >
-            ${todo.completed ? '<svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>' : ''}
-          </button>
-          <span class="flex-1 text-gray-800 text-sm ${todo.completed ? 'line-through text-gray-400' : ''}">${todo.text}</span>
-          <button onclick="deleteTodo(${todo.id})" class="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none">&times;</button>
-        </div>
-      `;
-
-      if (todos.length === 0) {
-        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No to-dos yet.</p>';
-        return;
-      }
-
-      list.innerHTML =
-        incomplete.map(renderTodo).join('') +
-        (complete.length ? `<div class="mt-2">${complete.map(renderTodo).join('')}</div>` : '');
-    }
-
-    async function addTodo(e) {
-      e.preventDefault();
-      const input = document.getElementById('todo-input');
-      const text  = input.value.trim();
-      if (!text) return;
-
-      const res = await fetch('/api/todos', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ text }),
-      });
-
-      if (res.ok) {
-        input.value = '';
-        loadTodos();
-      }
-    }
-
-    async function toggleTodo(id) {
-      await fetch(`/api/todos/${id}/complete`, { method: 'POST' });
-      loadTodos();
-    }
-
-    async function deleteTodo(id) {
-      await fetch(`/api/todos/${id}`, { method: 'DELETE' });
-      loadTodos();
-    }
-
-    // Handle Enter key in todo input
-    function todoKeyPress(e) {
-      if (e.key === 'Enter') { e.preventDefault(); addTodo(e); }
+      loadPreview();
     }
 
     // ── Print Now ───────────────────────────────────────────
@@ -164,10 +122,7 @@
 
       try {
         const res = await fetch('/api/daily-print/trigger', { method: 'POST' });
-        if (!res.ok) {
-          const { error } = await res.json();
-          throw new Error(error || 'Unknown error');
-        }
+        if (!res.ok) throw new Error((await res.json()).error || 'Unknown error');
         showBanner('print-success-banner');
       } catch (err) {
         document.getElementById('print-error-text').textContent = err.message;
@@ -182,7 +137,7 @@
     window.onload = () => {
       loadCalendarStatus();
       loadTimeBlocks();
-      loadTodos();
+      loadPreview();
     };
   </script>
 </head>
@@ -218,6 +173,27 @@
       Google Calendar connection failed. Please try again.
     </div>
 
+    <!-- Tomorrow's Preview -->
+    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-base font-semibold text-gray-800">Tomorrow's Receipt</h2>
+          <p class="text-sm text-gray-500">Preview of what will print in the morning.</p>
+        </div>
+        <button onclick="loadPreview()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors underline">Refresh</button>
+      </div>
+
+      <p id="preview-loading" class="text-gray-400 text-sm text-center py-6">Loading…</p>
+
+      <div id="preview-content" class="hidden">
+        <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 overflow-x-auto">
+          <pre id="preview-text" class="font-mono text-xs text-gray-700 leading-relaxed whitespace-pre"></pre>
+        </div>
+      </div>
+
+      <p id="preview-error" class="hidden text-red-400 text-sm text-center py-4"></p>
+    </section>
+
     <!-- Google Calendar -->
     <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
       <h2 class="text-base font-semibold text-gray-800 mb-1">Google Calendar</h2>
@@ -228,17 +204,11 @@
           <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
           <span class="text-sm text-gray-700">Connected</span>
         </div>
-        <button
-          onclick="disconnectCalendar()"
-          class="text-sm text-gray-400 hover:text-red-500 transition-colors underline"
-        >Disconnect</button>
+        <button onclick="disconnectCalendar()" class="text-sm text-gray-400 hover:text-red-500 transition-colors underline">Disconnect</button>
       </div>
 
       <div id="cal-disconnected" class="hidden">
-        <a
-          href="/auth/google"
-          class="inline-block bg-white border border-gray-300 hover:border-gray-400 text-gray-700 text-sm px-4 py-2 rounded-lg font-medium transition-all hover:shadow-sm"
-        >
+        <a href="/auth/google" class="inline-block bg-white border border-gray-300 hover:border-gray-400 text-gray-700 text-sm px-4 py-2 rounded-lg font-medium transition-all hover:shadow-sm">
           Connect Google Calendar
         </a>
       </div>
@@ -273,10 +243,7 @@
           </div>
           <div>
             <label class="block text-xs text-gray-500 mb-1">Duration</label>
-            <select
-              id="block-duration"
-              class="w-full p-3 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-300"
-            >
+            <select id="block-duration" class="w-full p-3 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-300">
               <option value="15">15 min</option>
               <option value="30">30 min</option>
               <option value="45">45 min</option>
@@ -287,34 +254,10 @@
             </select>
           </div>
         </div>
-        <button
-          type="submit"
-          class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2.5 rounded-lg font-medium transition-all"
-        >Add Block</button>
+        <button type="submit" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2.5 rounded-lg font-medium transition-all">
+          Add Block
+        </button>
       </form>
-    </section>
-
-    <!-- To-Do List -->
-    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
-      <h2 class="text-base font-semibold text-gray-800 mb-1">To-Do List</h2>
-      <p class="text-sm text-gray-500 mb-4">Incomplete items carry forward to each morning's receipt until checked off.</p>
-
-      <div id="todos-list" class="mb-4"></div>
-
-      <div class="flex gap-2 pt-4 border-t border-gray-100">
-        <input
-          id="todo-input"
-          type="text"
-          placeholder="New to-do…"
-          maxlength="100"
-          onkeypress="todoKeyPress(event)"
-          class="flex-1 p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-        />
-        <button
-          onclick="addTodo(event)"
-          class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 rounded-lg font-medium transition-all"
-        >Add</button>
-      </div>
     </section>
 
   </div>

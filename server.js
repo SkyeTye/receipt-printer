@@ -2,7 +2,7 @@ const express = require('express');
 const path    = require('path');
 const cron    = require('node-cron');
 const db      = require('./db');
-const { generateDailyPrintContent, getOAuthClient, getLocalTime, getAllSettings } = require('./daily-print');
+const { generateDailyPrintContent, getOAuthClient, getLocalTime, getAllSettings, getTomorrowDateStr } = require('./daily-print');
 
 const app = express();
 
@@ -194,6 +194,23 @@ app.get('/auth/google/callback', async (req, res) => {
 app.post('/auth/google/disconnect', (req, res) => {
   db.prepare('DELETE FROM oauth_tokens WHERE id = 1').run();
   res.json({ success: true });
+});
+
+// ============================================================
+// Daily Print — preview (tomorrow's schedule)
+// ============================================================
+
+app.get('/api/daily-print/preview', async (req, res) => {
+  try {
+    const s        = getAllSettings();
+    const timezone = s.timezone || 'America/Los_Angeles';
+    const tomorrow = getTomorrowDateStr(timezone);
+    const content  = await generateDailyPrintContent(tomorrow);
+    res.json({ content });
+  } catch (err) {
+    console.error('Preview error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============================================================

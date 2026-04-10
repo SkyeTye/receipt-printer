@@ -20,7 +20,21 @@ function minutesToTimeStr(mins) {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-// Get the local hour and minute for a given timezone
+// Returns "YYYY-MM-DD" for today in the given timezone
+function getTodayDateStr(timezone) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
+}
+
+// Returns "YYYY-MM-DD" for tomorrow in the given timezone
+function getTomorrowDateStr(timezone) {
+  const today = getTodayDateStr(timezone);
+  const [y, m, d] = today.split('-').map(Number);
+  // Build a local-midnight Date, advance one day
+  const next = new Date(y, m - 1, d + 1);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(next);
+}
+
+// Get the local hour and minute for a given timezone (used by cron)
 function getLocalTime(timezone) {
   const now = new Date();
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -35,7 +49,7 @@ function getLocalTime(timezone) {
   };
 }
 
-// Convert an ISO date string to local minutes-since-midnight
+// Convert an ISO datetime string to minutes-since-midnight in a timezone
 function isoToLocalMinutes(isoStr, timezone) {
   const date = new Date(isoStr);
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -49,16 +63,17 @@ function isoToLocalMinutes(isoStr, timezone) {
   return h * 60 + m;
 }
 
-function formatDayLabel(timezone) {
-  const now = new Date();
+// Format a day label ("Thu, Apr 10, 2026") for a given dateStr in a timezone
+// Uses noon-UTC as a proxy so the date is always interpreted correctly
+function formatDayLabel(timezone, dateStr) {
+  const date = new Date(`${dateStr}T12:00:00Z`);
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-  }).formatToParts(now);
-
+  }).formatToParts(date);
   const get = type => parts.find(p => p.type === type)?.value || '';
   return `${get('weekday')}, ${get('month')} ${get('day')}, ${get('year')}`;
 }
@@ -84,7 +99,10 @@ function getOAuthClient() {
   );
 }
 
-async function fetchCalendarEvents(timezone) {
+// Fetch calendar events for a specific date (dateStr = "YYYY-MM-DD" in the user's timezone).
+// Fetches a 36-hour window around noon-UTC on that date, then filters to events that
+// actually start on that date in the user's timezone.
+async function fetchCalendarEvents(timezone, dateStr) {
   const tokenRow = db.prepare('SELECT * FROM oauth_tokens WHERE id = 1').get();
   if (!tokenRow?.access_token) return [];
 
@@ -96,33 +114,27 @@ async function fetchCalendarEvents(timezone) {
     expiry_date:   tokenRow.expiry_date,
   });
 
-  // Persist refreshed tokens automatically
   client.on('tokens', tokens => {
     db.prepare(`
       UPDATE oauth_tokens
       SET access_token = ?, refresh_token = COALESCE(?, refresh_token), expiry_date = ?
       WHERE id = 1
-    `).run(
-      tokens.access_token,
-      tokens.refresh_token || null,
-      tokens.expiry_date
-    );
+    `).run(tokens.access_token, tokens.refresh_token || null, tokens.expiry_date);
   });
 
   const calendar = google.calendar({ version: 'v3', auth: client });
 
-  // Fetch today's events in the user's timezone
-  const now = new Date();
-  const startOfDay = new Date(now.toLocaleDateString('en-US', { timeZone: timezone }));
-  const endOfDay   = new Date(startOfDay.getTime() + 86400000);
+  const noonUTC = new Date(`${dateStr}T12:00:00Z`);
+  const timeMin = new Date(noonUTC.getTime() - 18 * 3600000).toISOString();
+  const timeMax = new Date(noonUTC.getTime() + 18 * 3600000).toISOString();
 
   const response = await calendar.events.list({
-    calendarId: 'primary',
-    timeMin:       startOfDay.toISOString(),
-    timeMax:       endOfDay.toISOString(),
-    singleEvents:  true,
-    orderBy:       'startTime',
-    timeZone:      timezone,
+    calendarId:   'primary',
+    timeMin,
+    timeMax,
+    singleEvents: true,
+    orderBy:      'startTime',
+    timeZone:     timezone,
   });
 
   return (response.data.items || [])
@@ -131,7 +143,12 @@ async function fetchCalendarEvents(timezone) {
       summary: e.summary || 'Event',
       start:   e.start.dateTime,
       end:     e.end.dateTime,
-    }));
+    }))
+    .filter(e => {
+      // Only include events that start on the target date in the user's timezone
+      const startDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date(e.start));
+      return startDateStr === dateStr;
+    });
 }
 
 // ============================================================
@@ -142,7 +159,6 @@ function buildDaySchedule(startTime, endTime, slotMins, timeBlocks, calEvents, t
   const dayStart = timeToMinutes(startTime);
   const dayEnd   = timeToMinutes(endTime);
 
-  // Calendar slots
   const calSlots = calEvents
     .map(e => ({
       label:     '[Cal] ' + e.summary,
@@ -152,7 +168,6 @@ function buildDaySchedule(startTime, endTime, slotMins, timeBlocks, calEvents, t
     }))
     .filter(s => s.endMins > dayStart && s.startMins < dayEnd);
 
-  // Custom time blocks — suppress any that overlap a calendar event
   const customSlots = timeBlocks
     .map(b => ({
       label:     b.label,
@@ -163,7 +178,6 @@ function buildDaySchedule(startTime, endTime, slotMins, timeBlocks, calEvents, t
     .filter(s => s.endMins > dayStart && s.startMins < dayEnd)
     .filter(s => !calSlots.some(c => s.startMins < c.endMins && s.endMins > c.startMins));
 
-  // Merge and sort
   const named = [...calSlots, ...customSlots].sort((a, b) => a.startMins - b.startMins);
 
   const slots = [];
@@ -174,7 +188,6 @@ function buildDaySchedule(startTime, endTime, slotMins, timeBlocks, calEvents, t
     const bEnd   = Math.min(block.endMins,   dayEnd);
     if (bEnd <= bStart) continue;
 
-    // Fill gap before this block with blank slots
     while (cursor + slotMins <= bStart) {
       slots.push({ type: 'blank', startMins: cursor });
       cursor += slotMins;
@@ -185,7 +198,6 @@ function buildDaySchedule(startTime, endTime, slotMins, timeBlocks, calEvents, t
     cursor = bEnd;
   }
 
-  // Fill remaining time
   while (cursor + slotMins <= dayEnd) {
     slots.push({ type: 'blank', startMins: cursor });
     cursor += slotMins;
@@ -197,9 +209,6 @@ function buildDaySchedule(startTime, endTime, slotMins, timeBlocks, calEvents, t
 // ============================================================
 // Print content formatter
 // ============================================================
-// Receipt is 30 chars wide. Layout per line:
-//   "HH:MM  <label or blanks>"
-//   time = 5, sep = 2, remaining = 23
 
 const LINE_WIDTH  = 30;
 const LABEL_WIDTH = LINE_WIDTH - 7; // 5 (time) + 2 (sep)
@@ -236,9 +245,11 @@ function formatDailyPrint(slots, todos, dayLabel) {
 
 // ============================================================
 // Main entry point
+// dateStr: "YYYY-MM-DD" in the user's timezone.
+//          Defaults to today if omitted.
 // ============================================================
 
-async function generateDailyPrintContent() {
+async function generateDailyPrintContent(dateStr = null) {
   const s = getAllSettings();
 
   const timezone  = s.timezone || 'America/Los_Angeles';
@@ -246,14 +257,22 @@ async function generateDailyPrintContent() {
   const endTime   = s.day_end || '21:00';
   const slotMins  = parseInt(s.slot_size_minutes || '60', 10);
 
+  const targetDate = dateStr || getTodayDateStr(timezone);
+
   const timeBlocks = db.prepare('SELECT * FROM time_blocks ORDER BY start_time').all();
   const todos      = db.prepare('SELECT * FROM todos WHERE completed = 0 ORDER BY created_at ASC').all();
-  const calEvents  = await fetchCalendarEvents(timezone);
+  const calEvents  = await fetchCalendarEvents(timezone, targetDate);
 
-  const slots   = buildDaySchedule(startTime, endTime, slotMins, timeBlocks, calEvents, timezone);
-  const dayLabel = formatDayLabel(timezone);
+  const slots    = buildDaySchedule(startTime, endTime, slotMins, timeBlocks, calEvents, timezone);
+  const dayLabel = formatDayLabel(timezone, targetDate);
 
   return formatDailyPrint(slots, todos, dayLabel);
 }
 
-module.exports = { generateDailyPrintContent, getOAuthClient, getLocalTime, getAllSettings };
+module.exports = {
+  generateDailyPrintContent,
+  getOAuthClient,
+  getLocalTime,
+  getAllSettings,
+  getTomorrowDateStr,
+};
