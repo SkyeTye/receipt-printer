@@ -39,6 +39,12 @@ app.get('/api/next-job', (req, res) => {
   const job = db.prepare(
     'SELECT id, content FROM print_queue WHERE status = ? ORDER BY created_at ASC LIMIT 1'
   ).get('pending');
+
+  // Mark in_progress immediately so it is never re-delivered if confirmation fails
+  if (job) {
+    db.prepare('UPDATE print_queue SET status = ? WHERE id = ?').run('in_progress', job.id);
+  }
+
   res.json(job || {});
 });
 

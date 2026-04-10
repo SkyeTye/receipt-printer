@@ -178,10 +178,7 @@ void pollForJobs() {
 
   printJob(content);
   confirmJob(jobId);
-
-  // Check immediately for more queued jobs
-  delay(500);
-  pollForJobs();
+  // Next job (if any) will be picked up on the next poll interval
 }
 
 void confirmJob(int jobId) {
