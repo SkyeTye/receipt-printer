@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-50 text-gray-900">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — Life Receipt</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    async function loadSettings() {
+      const res = await fetch('/api/settings');
+      const s = await res.json();
+
+      document.getElementById('daily_print_time').value  = s.daily_print_time  || '08:00';
+      document.getElementById('day_start').value         = s.day_start         || '08:00';
+      document.getElementById('day_end').value           = s.day_end           || '21:00';
+      document.getElementById('slot_size_minutes').value = s.slot_size_minutes || '60';
+      document.getElementById('week_wrapped_day').value  = s.week_wrapped_day  || '0';
+      document.getElementById('week_wrapped_time').value = s.week_wrapped_time || '09:00';
+    }
+
+    async function saveSettings(e) {
+      e.preventDefault();
+      const form = e.target;
+      const btn = document.getElementById('save-btn');
+      const saved = document.getElementById('saved-msg');
+      const error = document.getElementById('error-msg');
+
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+      saved.classList.add('hidden');
+      error.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          body: new FormData(form),
+        });
+        if (!res.ok) throw new Error();
+        saved.classList.remove('hidden');
+        setTimeout(() => saved.classList.add('hidden'), 3000);
+      } catch {
+        error.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Save Settings';
+      }
+    }
+
+    window.onload = loadSettings;
+  </script>
+</head>
+<body class="min-h-screen py-12 px-4 font-sans">
+  <div class="max-w-lg mx-auto">
+
+    <div class="flex items-center justify-between mb-10">
+      <h1 class="text-3xl font-semibold text-gray-900 tracking-tight">Settings</h1>
+      <a href="/" class="text-sm text-gray-500 hover:text-gray-800 transition-colors">← Back</a>
+    </div>
+
+    <form onsubmit="saveSettings(event)" class="space-y-8">
+
+      <!-- Daily Print -->
+      <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Daily Print</h2>
+        <p class="text-sm text-gray-500">Your morning receipt will print at this time each day. (Active in Phase 2.)</p>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Print time</label>
+          <input type="time" id="daily_print_time" name="daily_print_time"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
+        </div>
+      </section>
+
+      <!-- Day Window -->
+      <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Day Window</h2>
+        <p class="text-sm text-gray-500">The time range shown on your daily planner receipt. (Active in Phase 2.)</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Start</label>
+            <input type="time" id="day_start" name="day_start"
+              class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">End</label>
+            <input type="time" id="day_end" name="day_end"
+              class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Default blank slot size</label>
+          <select id="slot_size_minutes" name="slot_size_minutes"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white">
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- Week Wrapped -->
+      <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Week, Wrapped</h2>
+        <p class="text-sm text-gray-500">When your weekly summary receipt prints. (Active in Phase 3.)</p>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Day</label>
+            <select id="week_wrapped_day" name="week_wrapped_day"
+              class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white">
+              <option value="0">Sunday</option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
+            <input type="time" id="week_wrapped_time" name="week_wrapped_time"
+              class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
+          </div>
+        </div>
+      </section>
+
+      <button
+        id="save-btn"
+        type="submit"
+        class="w-full bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white py-3 rounded-xl font-medium transition-all duration-200 hover:scale-[1.01] hover:shadow-lg"
+      >
+        Save Settings
+      </button>
+
+      <p id="saved-msg" class="hidden text-center text-green-600 text-sm font-medium">Settings saved.</p>
+      <p id="error-msg" class="hidden text-center text-red-500 text-sm">Something went wrong. Please try again.</p>
+    </form>
+  </div>
+</body>
+</html>
