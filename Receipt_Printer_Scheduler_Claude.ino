@@ -25,7 +25,7 @@
 // ============================================================
 const char* WIFI_SSID     = "1329 W 36th Resident";
 const char* WIFI_PASSWORD = "k1m4ucio";
-const char* SERVER_URL    = "https://YOUR-APP.up.railway.app"; // no trailing slash
+const char* SERVER_URL    = "https://receipt-printer-production.up.railway.app"; // no trailing slash
 
 // Timezone offset in seconds (PST = -28800, PDT = -25200)
 const long UTC_OFFSET = -28800;

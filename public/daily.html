@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-50 text-gray-900">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Daily Planner — Life Receipt</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // ── State ──────────────────────────────────────────────
+    let calendarConnected = false;
+
+    // ── Helpers ────────────────────────────────────────────
+    function showBanner(id, duration = 3000) {
+      const el = document.getElementById(id);
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), duration);
+    }
+
+    function formatDuration(mins) {
+      if (mins < 60) return `${mins}m`;
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      return m ? `${h}h ${m}m` : `${h}h`;
+    }
+
+    // ── Calendar status ────────────────────────────────────
+    async function loadCalendarStatus() {
+      const res = await fetch('/api/calendar/status');
+      const { connected } = await res.json();
+      calendarConnected = connected;
+
+      document.getElementById('cal-connected').classList.toggle('hidden', !connected);
+      document.getElementById('cal-disconnected').classList.toggle('hidden', connected);
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('connected')) showBanner('cal-success-banner');
+      if (params.get('error'))     showBanner('cal-error-banner');
+      window.history.replaceState({}, '', '/daily');
+    }
+
+    async function disconnectCalendar() {
+      if (!confirm('Disconnect Google Calendar?')) return;
+      await fetch('/auth/google/disconnect', { method: 'POST' });
+      loadCalendarStatus();
+    }
+
+    // ── Time Blocks ─────────────────────────────────────────
+    async function loadTimeBlocks() {
+      const res    = await fetch('/api/time-blocks');
+      const blocks = await res.json();
+      const list   = document.getElementById('blocks-list');
+
+      if (blocks.length === 0) {
+        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No time blocks yet.</p>';
+        return;
+      }
+
+      list.innerHTML = blocks.map(b => `
+        <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+          <div>
+            <span class="font-mono text-sm text-gray-500">${b.start_time}</span>
+            <span class="ml-3 text-gray-800">${b.label}</span>
+            <span class="ml-2 text-xs text-gray-400">${formatDuration(b.duration_minutes)}</span>
+          </div>
+          <button onclick="deleteBlock(${b.id})" class="text-gray-300 hover:text-red-400 transition-colors ml-4 text-lg leading-none">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    async function addBlock(e) {
+      e.preventDefault();
+      const label    = document.getElementById('block-label').value.trim();
+      const start    = document.getElementById('block-start').value;
+      const duration = document.getElementById('block-duration').value;
+
+      const res = await fetch('/api/time-blocks', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ label, start_time: start, duration_minutes: duration }),
+      });
+
+      if (res.ok) {
+        e.target.reset();
+        loadTimeBlocks();
+      }
+    }
+
+    async function deleteBlock(id) {
+      await fetch(`/api/time-blocks/${id}`, { method: 'DELETE' });
+      loadTimeBlocks();
+    }
+
+    // ── Todos ───────────────────────────────────────────────
+    async function loadTodos() {
+      const res   = await fetch('/api/todos');
+      const todos = await res.json();
+
+      const incomplete = todos.filter(t => !t.completed);
+      const complete   = todos.filter(t =>  t.completed);
+
+      const list = document.getElementById('todos-list');
+
+      const renderTodo = (todo) => `
+        <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0 group ${todo.completed ? 'opacity-50' : ''}">
+          <button
+            onclick="toggleTodo(${todo.id})"
+            class="w-5 h-5 rounded border-2 ${todo.completed ? 'bg-gray-400 border-gray-400' : 'border-gray-300 hover:border-gray-500'} flex-shrink-0 flex items-center justify-center transition-colors"
+          >
+            ${todo.completed ? '<svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>' : ''}
+          </button>
+          <span class="flex-1 text-gray-800 text-sm ${todo.completed ? 'line-through text-gray-400' : ''}">${todo.text}</span>
+          <button onclick="deleteTodo(${todo.id})" class="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none">&times;</button>
+        </div>
+      `;
+
+      if (todos.length === 0) {
+        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No to-dos yet.</p>';
+        return;
+      }
+
+      list.innerHTML =
+        incomplete.map(renderTodo).join('') +
+        (complete.length ? `<div class="mt-2">${complete.map(renderTodo).join('')}</div>` : '');
+    }
+
+    async function addTodo(e) {
+      e.preventDefault();
+      const input = document.getElementById('todo-input');
+      const text  = input.value.trim();
+      if (!text) return;
+
+      const res = await fetch('/api/todos', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ text }),
+      });
+
+      if (res.ok) {
+        input.value = '';
+        loadTodos();
+      }
+    }
+
+    async function toggleTodo(id) {
+      await fetch(`/api/todos/${id}/complete`, { method: 'POST' });
+      loadTodos();
+    }
+
+    async function deleteTodo(id) {
+      await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+      loadTodos();
+    }
+
+    // Handle Enter key in todo input
+    function todoKeyPress(e) {
+      if (e.key === 'Enter') { e.preventDefault(); addTodo(e); }
+    }
+
+    // ── Print Now ───────────────────────────────────────────
+    async function printNow() {
+      const btn = document.getElementById('print-now-btn');
+      btn.disabled = true;
+      btn.textContent = 'Generating…';
+
+      try {
+        const res = await fetch('/api/daily-print/trigger', { method: 'POST' });
+        if (!res.ok) {
+          const { error } = await res.json();
+          throw new Error(error || 'Unknown error');
+        }
+        showBanner('print-success-banner');
+      } catch (err) {
+        document.getElementById('print-error-text').textContent = err.message;
+        showBanner('print-error-banner', 5000);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Print Now';
+      }
+    }
+
+    // ── Init ─────────────────────────────────────────────────
+    window.onload = () => {
+      loadCalendarStatus();
+      loadTimeBlocks();
+      loadTodos();
+    };
+  </script>
+</head>
+<body class="min-h-screen py-12 px-4 font-sans">
+  <div class="max-w-lg mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="/" class="text-sm text-gray-500 hover:text-gray-800 transition-colors">← Back</a>
+        <h1 class="text-3xl font-semibold text-gray-900 tracking-tight">Daily Planner</h1>
+      </div>
+      <button
+        id="print-now-btn"
+        onclick="printNow()"
+        class="bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white text-sm px-4 py-2 rounded-lg font-medium transition-all"
+      >
+        Print Now
+      </button>
+    </div>
+
+    <!-- Banners -->
+    <div id="print-success-banner" class="hidden p-3 bg-green-100 text-green-800 rounded-lg text-sm text-center">
+      Daily plan queued — it will print within 30 seconds.
+    </div>
+    <div id="print-error-banner" class="hidden p-3 bg-red-100 text-red-800 rounded-lg text-sm text-center">
+      Print failed: <span id="print-error-text"></span>
+    </div>
+    <div id="cal-success-banner" class="hidden p-3 bg-green-100 text-green-800 rounded-lg text-sm text-center">
+      Google Calendar connected!
+    </div>
+    <div id="cal-error-banner" class="hidden p-3 bg-red-100 text-red-800 rounded-lg text-sm text-center">
+      Google Calendar connection failed. Please try again.
+    </div>
+
+    <!-- Google Calendar -->
+    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
+      <h2 class="text-base font-semibold text-gray-800 mb-1">Google Calendar</h2>
+      <p class="text-sm text-gray-500 mb-4">When connected, your appointments appear as locked blocks on the daily receipt.</p>
+
+      <div id="cal-connected" class="hidden flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+          <span class="text-sm text-gray-700">Connected</span>
+        </div>
+        <button
+          onclick="disconnectCalendar()"
+          class="text-sm text-gray-400 hover:text-red-500 transition-colors underline"
+        >Disconnect</button>
+      </div>
+
+      <div id="cal-disconnected" class="hidden">
+        <a
+          href="/auth/google"
+          class="inline-block bg-white border border-gray-300 hover:border-gray-400 text-gray-700 text-sm px-4 py-2 rounded-lg font-medium transition-all hover:shadow-sm"
+        >
+          Connect Google Calendar
+        </a>
+      </div>
+    </section>
+
+    <!-- Time Blocks -->
+    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
+      <h2 class="text-base font-semibold text-gray-800 mb-1">Recurring Time Blocks</h2>
+      <p class="text-sm text-gray-500 mb-4">These repeat daily on your receipt. Calendar appointments take priority over any conflicts.</p>
+
+      <div id="blocks-list" class="mb-5"></div>
+
+      <form onsubmit="addBlock(event)" class="space-y-3 pt-4 border-t border-gray-100">
+        <h3 class="text-sm font-medium text-gray-700">Add block</h3>
+        <input
+          id="block-label"
+          type="text"
+          placeholder="Label (e.g. Meditation)"
+          maxlength="60"
+          required
+          class="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+        />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Start time</label>
+            <input
+              id="block-start"
+              type="time"
+              required
+              class="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+            />
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Duration</label>
+            <select
+              id="block-duration"
+              class="w-full p-3 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-300"
+            >
+              <option value="15">15 min</option>
+              <option value="30">30 min</option>
+              <option value="45">45 min</option>
+              <option value="60" selected>1 hour</option>
+              <option value="90">1.5 hours</option>
+              <option value="120">2 hours</option>
+              <option value="180">3 hours</option>
+            </select>
+          </div>
+        </div>
+        <button
+          type="submit"
+          class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2.5 rounded-lg font-medium transition-all"
+        >Add Block</button>
+      </form>
+    </section>
+
+    <!-- To-Do List -->
+    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
+      <h2 class="text-base font-semibold text-gray-800 mb-1">To-Do List</h2>
+      <p class="text-sm text-gray-500 mb-4">Incomplete items carry forward to each morning's receipt until checked off.</p>
+
+      <div id="todos-list" class="mb-4"></div>
+
+      <div class="flex gap-2 pt-4 border-t border-gray-100">
+        <input
+          id="todo-input"
+          type="text"
+          placeholder="New to-do…"
+          maxlength="100"
+          onkeypress="todoKeyPress(event)"
+          class="flex-1 p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+        />
+        <button
+          onclick="addTodo(event)"
+          class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 rounded-lg font-medium transition-all"
+        >Add</button>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>

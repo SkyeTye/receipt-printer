@@ -18,6 +18,7 @@
       document.getElementById('slot_size_minutes').value = s.slot_size_minutes || '60';
       document.getElementById('week_wrapped_day').value  = s.week_wrapped_day  || '0';
       document.getElementById('week_wrapped_time').value = s.week_wrapped_time || '09:00';
+      document.getElementById('timezone').value          = s.timezone          || 'America/Los_Angeles';
     }
 
     async function saveSettings(e) {
@@ -34,7 +35,7 @@
 
       try {
         const data = {};
-        for (const id of ['daily_print_time','day_start','day_end','slot_size_minutes','week_wrapped_day','week_wrapped_time']) {
+        for (const id of ['daily_print_time','day_start','day_end','slot_size_minutes','week_wrapped_day','week_wrapped_time','timezone']) {
           data[id] = document.getElementById(id).value;
         }
         const res = await fetch('/api/settings', {
@@ -127,6 +128,28 @@
             <input type="time" id="week_wrapped_time" name="week_wrapped_time"
               class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
           </div>
+        </div>
+      </section>
+
+      <!-- Timezone -->
+      <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
+        <h2 class="text-base font-semibold text-gray-800">Timezone</h2>
+        <p class="text-sm text-gray-500">Used for scheduling and calendar display.</p>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+          <select id="timezone" name="timezone"
+            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white">
+            <option value="America/Los_Angeles">Pacific (PT)</option>
+            <option value="America/Denver">Mountain (MT)</option>
+            <option value="America/Chicago">Central (CT)</option>
+            <option value="America/New_York">Eastern (ET)</option>
+            <option value="America/Anchorage">Alaska (AKT)</option>
+            <option value="Pacific/Honolulu">Hawaii (HST)</option>
+            <option value="Europe/London">London (GMT/BST)</option>
+            <option value="Europe/Paris">Central Europe (CET)</option>
+            <option value="Asia/Tokyo">Tokyo (JST)</option>
+            <option value="Australia/Sydney">Sydney (AEST)</option>
+          </select>
         </div>
       </section>
 
