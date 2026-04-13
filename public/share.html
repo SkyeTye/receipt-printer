@@ -27,6 +27,7 @@
         });
         if (!res.ok) throw new Error();
 
+        success.textContent = `Added "${text}" to his list!`;
         input.value = '';
         success.classList.remove('hidden');
         setTimeout(() => success.classList.add('hidden'), 2500);
