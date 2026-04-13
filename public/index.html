@@ -7,6 +7,18 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script>
+    // ── Share link ──────────────────────────────────────────
+    async function copyShareLink() {
+      const res   = await fetch('/api/share-token');
+      const { token } = await res.json();
+      const url   = `${window.location.origin}/share/${token}`;
+      await navigator.clipboard.writeText(url);
+
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy share link'; }, 2000);
+    }
+
     // ── Todos ───────────────────────────────────────────────
     async function loadTodos() {
       const res   = await fetch('/api/todos');
@@ -61,8 +73,7 @@
       `).join('');
     }
 
-    async function addTodo(e) {
-      e.preventDefault();
+    async function addTodo(completed = false) {
       const input = document.getElementById('todo-input');
       const text  = input.value.trim();
       if (!text) return;
@@ -70,13 +81,15 @@
       const res = await fetch('/api/todos', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ text }),
+        body:    JSON.stringify({ text, completed }),
       });
 
       if (res.ok) {
         input.value = '';
         loadTodos();
-        confetti({ particleCount: 40, spread: 50, origin: { y: 0.4 }, scalar: 0.7 });
+        if (!completed) {
+          confetti({ particleCount: 40, spread: 50, origin: { y: 0.4 }, scalar: 0.7 });
+        }
       }
     }
 
@@ -88,10 +101,6 @@
     async function deleteTodo(id) {
       await fetch(`/api/todos/${id}`, { method: 'DELETE' });
       loadTodos();
-    }
-
-    function todoKeyPress(e) {
-      if (e.key === 'Enter') { e.preventDefault(); addTodo(e); }
     }
 
     // ── Instant Print ───────────────────────────────────────
@@ -148,19 +157,30 @@
 
         <div id="do-list" class="flex-1 mb-4 min-h-[80px]"></div>
 
-        <div class="flex gap-2 pt-4 border-t border-gray-100">
+        <div class="pt-4 border-t border-gray-100 space-y-2">
           <input
             id="todo-input"
             type="text"
             placeholder="Add a task…"
             maxlength="100"
-            onkeypress="todoKeyPress(event)"
-            class="flex-1 p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+            onkeypress="if(event.key==='Enter'){event.preventDefault();addTodo(false)}"
+            class="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
           />
+          <div class="grid grid-cols-2 gap-2">
+            <button
+              onclick="addTodo(false)"
+              class="bg-gray-900 hover:bg-gray-700 text-white text-xs py-2 rounded-lg font-medium transition-all"
+            >+ Add to Do</button>
+            <button
+              onclick="addTodo(true)"
+              class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-medium transition-all"
+            >✓ Already Done</button>
+          </div>
           <button
-            onclick="addTodo(event)"
-            class="bg-gray-900 hover:bg-gray-700 text-white text-sm px-4 rounded-lg font-medium transition-all"
-          >+</button>
+            id="copy-btn"
+            onclick="copyShareLink()"
+            class="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors py-1"
+          >Copy share link</button>
         </div>
       </div>
 

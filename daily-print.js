@@ -25,13 +25,13 @@ function getTodayDateStr(timezone) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
 }
 
-// Returns "YYYY-MM-DD" for tomorrow in the given timezone
+// Returns "YYYY-MM-DD" for tomorrow in the given timezone.
+// Uses noon-UTC on today + 24 h to avoid server-timezone midnight issues.
 function getTomorrowDateStr(timezone) {
-  const today = getTodayDateStr(timezone);
-  const [y, m, d] = today.split('-').map(Number);
-  // Build a local-midnight Date, advance one day
-  const next = new Date(y, m - 1, d + 1);
-  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(next);
+  const today    = getTodayDateStr(timezone);               // "YYYY-MM-DD" in user's tz
+  const noonUTC  = new Date(`${today}T12:00:00Z`);          // noon UTC on that date
+  const tomorrow = new Date(noonUTC.getTime() + 86400000);  // + 24 h
+  return new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(tomorrow);
 }
 
 // Get the local hour and minute for a given timezone (used by cron)

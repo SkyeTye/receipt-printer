@@ -1,7 +1,15 @@
 const express = require('express');
 const path    = require('path');
 const cron    = require('node-cron');
+const crypto  = require('crypto');
 const db      = require('./db');
+
+// Ensure a share token exists (generated once, persisted in settings)
+if (!db.prepare('SELECT value FROM settings WHERE key = ?').get('share_token')) {
+  db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run(
+    'share_token', crypto.randomBytes(16).toString('hex')
+  );
+}
 const { generateDailyPrintContent, getOAuthClient, getLocalTime, getAllSettings, getTomorrowDateStr } = require('./daily-print');
 
 const app = express();
@@ -118,10 +126,14 @@ app.get('/api/todos', (req, res) => {
 });
 
 app.post('/api/todos', (req, res) => {
-  const text = (req.body.text || '').trim();
+  const text      = (req.body.text || '').trim();
   if (!text) return res.status(400).json({ error: 'text is required' });
 
-  const result = db.prepare('INSERT INTO todos (text) VALUES (?)').run(text);
+  const completed = req.body.completed ? 1 : 0;
+  const now       = new Date().toISOString();
+  const result    = db.prepare(
+    'INSERT INTO todos (text, completed, completed_at) VALUES (?, ?, ?)'
+  ).run(text, completed, completed ? now : null);
   res.json({ id: result.lastInsertRowid });
 });
 
@@ -139,6 +151,31 @@ app.post('/api/todos/:id/complete', (req, res) => {
 
 app.delete('/api/todos/:id', (req, res) => {
   db.prepare('DELETE FROM todos WHERE id = ?').run(parseInt(req.params.id, 10));
+  res.json({ success: true });
+});
+
+// ============================================================
+// Share link
+// ============================================================
+
+app.get('/api/share-token', (req, res) => {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('share_token');
+  res.json({ token: row.value });
+});
+
+// Public share form — anyone with the token URL can add a todo
+app.get('/share/:token', (req, res) => {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('share_token');
+  if (!row || req.params.token !== row.value) return res.status(404).send('Not found');
+  res.sendFile(path.join(__dirname, 'public', 'share.html'));
+});
+
+app.post('/share/:token', (req, res) => {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('share_token');
+  if (!row || req.params.token !== row.value) return res.status(404).json({ error: 'Not found' });
+  const text = (req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'text is required' });
+  db.prepare('INSERT INTO todos (text) VALUES (?)').run(text);
   res.json({ success: true });
 });
 

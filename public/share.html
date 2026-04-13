@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-50 text-gray-900">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Add to Skye's List</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    async function submit(e) {
+      e.preventDefault();
+      const input   = document.getElementById('task-input');
+      const btn     = document.getElementById('submit-btn');
+      const success = document.getElementById('success-msg');
+      const error   = document.getElementById('error-msg');
+      const text    = input.value.trim();
+      if (!text) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Adding…';
+      error.classList.add('hidden');
+
+      try {
+        const res = await fetch(window.location.pathname, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ text }),
+        });
+        if (!res.ok) throw new Error();
+
+        document.getElementById('form').classList.add('hidden');
+        success.classList.remove('hidden');
+      } catch {
+        error.classList.remove('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Add to list';
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen flex items-center justify-center px-4 font-sans">
+  <div class="w-full max-w-sm text-center">
+    <h1 class="text-2xl font-semibold text-gray-900 mb-2">Add to Skye's list</h1>
+    <p class="text-sm text-gray-500 mb-8">Drop something on her to-do list.</p>
+
+    <div id="form" class="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4">
+      <textarea
+        id="task-input"
+        maxlength="100"
+        placeholder="What should she do?"
+        onkeypress="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submit(event)}"
+        class="w-full p-3 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-300"
+        rows="3"
+        autofocus
+      ></textarea>
+      <button
+        id="submit-btn"
+        onclick="submit(event)"
+        class="w-full bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-medium transition-all"
+      >Add to list</button>
+      <p id="error-msg" class="hidden text-red-500 text-sm">Something went wrong. Try again.</p>
+    </div>
+
+    <div id="success-msg" class="hidden bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+      <div class="text-3xl mb-3">✓</div>
+      <p class="text-gray-800 font-medium">Added!</p>
+      <p class="text-gray-500 text-sm mt-1">It's on her list.</p>
+    </div>
+  </div>
+</body>
+</html>
