@@ -34,6 +34,12 @@ db.exec(`
     completed_at DATETIME
   );
 
+  CREATE TABLE IF NOT EXISTS accomplishments (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    text       TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS oauth_tokens (
     id            INTEGER PRIMARY KEY CHECK (id = 1),
     access_token  TEXT,
@@ -53,8 +59,10 @@ const defaults = {
   daily_print_time:       '08:00',
   week_wrapped_day:       '0',
   week_wrapped_time:      '09:00',
-  timezone:               'America/Los_Angeles',
-  last_daily_print_date:  '',
+  timezone:                'America/Los_Angeles',
+  last_daily_print_date:   '',
+  goals:                   '',
+  last_week_wrapped_date:  '',
 };
 
 for (const [key, value] of Object.entries(defaults)) {

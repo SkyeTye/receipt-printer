@@ -3,6 +3,7 @@ const path    = require('path');
 const cron    = require('node-cron');
 const crypto  = require('crypto');
 const db      = require('./db');
+const { generateWeekWrappedContent } = require('./week-wrapped');
 
 // Ensure a share token exists (generated once, persisted in settings)
 if (!db.prepare('SELECT value FROM settings WHERE key = ?').get('share_token')) {
@@ -27,6 +28,9 @@ app.get('/settings', (req, res) =>
 
 app.get('/daily', (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'daily.html')));
+
+app.get('/week-wrapped', (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'week-wrapped.html')));
 
 // ============================================================
 // Instant Print
@@ -71,7 +75,7 @@ app.post('/api/job-done/:id', (req, res) => {
 
 const ALLOWED_SETTINGS = [
   'day_start', 'day_end', 'slot_size_minutes',
-  'daily_print_time', 'week_wrapped_day', 'week_wrapped_time', 'timezone',
+  'daily_print_time', 'week_wrapped_day', 'week_wrapped_time', 'timezone', 'goals',
 ];
 
 app.get('/api/settings', (req, res) => {
@@ -152,6 +156,49 @@ app.post('/api/todos/:id/complete', (req, res) => {
 app.delete('/api/todos/:id', (req, res) => {
   db.prepare('DELETE FROM todos WHERE id = ?').run(parseInt(req.params.id, 10));
   res.json({ success: true });
+});
+
+// ============================================================
+// Accomplishments API
+// ============================================================
+
+app.get('/api/accomplishments', (req, res) => {
+  // Return accomplishments since last week wrapped (or last 7 days on first run)
+  const lastWrap = db.prepare("SELECT value FROM settings WHERE key = 'last_week_wrapped_date'").get()?.value || '';
+  const rows = lastWrap
+    ? db.prepare('SELECT * FROM accomplishments WHERE created_at > ? ORDER BY created_at ASC').all(lastWrap)
+    : db.prepare("SELECT * FROM accomplishments WHERE created_at > datetime('now','-7 days') ORDER BY created_at ASC").all();
+  res.json(rows);
+});
+
+app.post('/api/accomplishments', (req, res) => {
+  const text = (req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'text is required' });
+  const result = db.prepare('INSERT INTO accomplishments (text) VALUES (?)').run(text);
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.delete('/api/accomplishments/:id', (req, res) => {
+  db.prepare('DELETE FROM accomplishments WHERE id = ?').run(parseInt(req.params.id, 10));
+  res.json({ success: true });
+});
+
+// ============================================================
+// Week Wrapped — manual trigger
+// ============================================================
+
+app.post('/api/week-wrapped/trigger', async (req, res) => {
+  try {
+    const content = await generateWeekWrappedContent();
+    if (!content) return res.status(400).json({ error: 'No accomplishments logged this week yet.' });
+
+    db.prepare('INSERT INTO print_queue (content) VALUES (?)').run(content);
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('last_week_wrapped_date', ?)").run(new Date().toISOString());
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Week wrapped trigger error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ============================================================
@@ -278,27 +325,47 @@ app.post('/api/daily-print/trigger', async (req, res) => {
 // Cron — daily print scheduler (runs every minute)
 // ============================================================
 
+// Helper — get local day of week (0=Sun…6=Sat) in a given timezone
+function getLocalDayOfWeek(timezone) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).formatToParts(new Date());
+  return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].indexOf(parts.find(p => p.type === 'weekday').value);
+}
+
 cron.schedule('* * * * *', async () => {
   try {
-    const s = getAllSettings();
-    const timezone  = s.timezone || 'America/Los_Angeles';
-    const printTime = s.daily_print_time || '08:00';
-    const [targetHour, targetMinute] = printTime.split(':').map(Number);
-
+    const s        = getAllSettings();
+    const timezone = s.timezone || 'America/Los_Angeles';
     const { hour, minute } = getLocalTime(timezone);
-    if (hour !== targetHour || minute !== targetMinute) return;
+    const today    = new Date().toISOString().split('T')[0];
 
-    // Prevent printing more than once per day
-    const today = new Date().toISOString().split('T')[0];
-    if (s.last_daily_print_date === today) return;
+    // ── Daily print ──────────────────────────────────────
+    const [dailyHour, dailyMin] = (s.daily_print_time || '08:00').split(':').map(Number);
+    if (hour === dailyHour && minute === dailyMin && s.last_daily_print_date !== today) {
+      console.log(`[cron] Generating daily print for ${today}`);
+      const content = await generateDailyPrintContent();
+      db.prepare('INSERT INTO print_queue (content) VALUES (?)').run(content);
+      db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('last_daily_print_date', today);
+      console.log('[cron] Daily print queued');
+    }
 
-    console.log(`[cron] Generating daily print for ${today}`);
-    const content = await generateDailyPrintContent();
-    db.prepare('INSERT INTO print_queue (content) VALUES (?)').run(content);
-    db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('last_daily_print_date', today);
-    console.log('[cron] Daily print queued');
+    // ── Week Wrapped ─────────────────────────────────────
+    const wrapDay  = parseInt(s.week_wrapped_day  || '0', 10);
+    const [wrapHour, wrapMin] = (s.week_wrapped_time || '09:00').split(':').map(Number);
+    const dayOfWeek = getLocalDayOfWeek(timezone);
+
+    if (dayOfWeek === wrapDay && hour === wrapHour && minute === wrapMin && s.last_week_wrapped_date?.split('T')[0] !== today) {
+      console.log('[cron] Generating Week Wrapped...');
+      const content = await generateWeekWrappedContent();
+      if (content) {
+        db.prepare('INSERT INTO print_queue (content) VALUES (?)').run(content);
+        db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('last_week_wrapped_date', new Date().toISOString());
+        console.log('[cron] Week Wrapped queued');
+      } else {
+        console.log('[cron] Week Wrapped skipped — no accomplishments');
+      }
+    }
   } catch (err) {
-    console.error('[cron] Daily print error:', err.message);
+    console.error('[cron] Error:', err.message);
   }
 });
 
