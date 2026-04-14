@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Add to Skye's List</title>
+  <title>Leave Skye a note</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    async function submit(e) {
+    async function submitTodo(e) {
       e.preventDefault();
       const input   = document.getElementById('task-input');
-      const btn     = document.getElementById('submit-btn');
-      const success = document.getElementById('success-msg');
-      const error   = document.getElementById('error-msg');
+      const btn     = document.getElementById('task-btn');
+      const success = document.getElementById('task-success');
+      const error   = document.getElementById('task-error');
       const text    = input.value.trim();
       if (!text) return;
 
@@ -38,31 +38,89 @@
         btn.textContent = 'Add to list';
       }
     }
+
+    async function submitMessage(e) {
+      e.preventDefault();
+      const input   = document.getElementById('message-input');
+      const btn     = document.getElementById('message-btn');
+      const success = document.getElementById('message-success');
+      const error   = document.getElementById('message-error');
+      const text    = input.value.trim();
+      if (!text) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      error.classList.add('hidden');
+
+      try {
+        const res = await fetch(window.location.pathname + '/message', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ text }),
+        });
+        if (!res.ok) throw new Error();
+
+        input.value = '';
+        success.classList.remove('hidden');
+        setTimeout(() => success.classList.add('hidden'), 2500);
+      } catch {
+        error.classList.remove('hidden');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Send to printer';
+      }
+    }
   </script>
 </head>
-<body class="min-h-screen flex items-center justify-center px-4 font-sans">
-  <div class="w-full max-w-sm text-center">
-    <h1 class="text-2xl font-semibold text-gray-900 mb-2">Add to Skye's list</h1>
-    <p class="text-sm text-gray-500 mb-8">Drop something on his to-do list.</p>
+<body class="min-h-screen flex items-center justify-center px-4 py-12 font-sans">
+  <div class="w-full max-w-sm space-y-6">
 
-    <div id="form" class="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 space-y-4">
+    <div class="text-center">
+      <h1 class="text-2xl font-semibold text-gray-900 mb-1">Hey, Skye</h1>
+      <p class="text-sm text-gray-500">Leave him a note or add something to his list.</p>
+    </div>
+
+    <!-- To-do -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-3">
+      <h2 class="text-sm font-semibold text-gray-700 tracking-wide uppercase">Add to his list</h2>
       <textarea
         id="task-input"
         maxlength="100"
-        placeholder="What should he do?"
-        onkeypress="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submit(event)}"
+        placeholder="Something he should do…"
+        onkeypress="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitTodo(event)}"
         class="w-full p-3 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-300"
-        rows="3"
+        rows="2"
         autofocus
       ></textarea>
       <button
-        id="submit-btn"
-        onclick="submit(event)"
-        class="w-full bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-medium transition-all"
+        id="task-btn"
+        onclick="submitTodo(event)"
+        class="w-full bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-medium transition-all"
       >Add to list</button>
-      <p id="success-msg" class="hidden text-green-600 text-sm">Added to his list!</p>
-      <p id="error-msg"   class="hidden text-red-500 text-sm">Something went wrong. Try again.</p>
+      <p id="task-success" class="hidden text-green-600 text-sm text-center"></p>
+      <p id="task-error"   class="hidden text-red-500 text-sm text-center">Something went wrong. Try again.</p>
     </div>
+
+    <!-- Message -->
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-3">
+      <h2 class="text-sm font-semibold text-gray-700 tracking-wide uppercase">Leave a message</h2>
+      <p class="text-xs text-gray-400">Prints directly on his receipt printer.</p>
+      <textarea
+        id="message-input"
+        maxlength="500"
+        placeholder="Write him something…"
+        class="w-full p-3 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-300"
+        rows="6"
+      ></textarea>
+      <button
+        id="message-btn"
+        onclick="submitMessage(event)"
+        class="w-full bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-medium transition-all"
+      >Send to printer</button>
+      <p id="message-success" class="hidden text-green-600 text-sm text-center">Message sent — it's printing now!</p>
+      <p id="message-error"   class="hidden text-red-500 text-sm text-center">Something went wrong. Try again.</p>
+    </div>
+
   </div>
 </body>
 </html>

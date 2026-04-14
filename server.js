@@ -179,6 +179,15 @@ app.post('/share/:token', (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/share/:token/message', (req, res) => {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get('share_token');
+  if (!row || req.params.token !== row.value) return res.status(404).json({ error: 'Not found' });
+  const text = (req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'text is required' });
+  db.prepare('INSERT INTO print_queue (content) VALUES (?)').run(text);
+  res.json({ success: true });
+});
+
 // ============================================================
 // Google Calendar OAuth
 // ============================================================
