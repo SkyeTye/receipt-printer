@@ -73,6 +73,23 @@
       `).join('');
     }
 
+    async function addDone() {
+      const input = document.getElementById('done-input');
+      const text  = input.value.trim();
+      if (!text) return;
+
+      const res = await fetch('/api/todos', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ text, completed: true }),
+      });
+
+      if (res.ok) {
+        input.value = '';
+        loadTodos();
+      }
+    }
+
     async function addTodo(completed = false) {
       const input = document.getElementById('todo-input');
       const text  = input.value.trim();
@@ -167,16 +184,10 @@
             onkeypress="if(event.key==='Enter'){event.preventDefault();addTodo(false)}"
             class="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
           />
-          <div class="grid grid-cols-2 gap-2">
-            <button
-              onclick="addTodo(false)"
-              class="bg-gray-900 hover:bg-gray-700 text-white text-xs py-2 rounded-lg font-medium transition-all"
-            >+ Add to Do</button>
-            <button
-              onclick="addTodo(true)"
-              class="bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-medium transition-all"
-            >✓ Already Done</button>
-          </div>
+          <button
+            onclick="addTodo(false)"
+            class="w-full bg-gray-900 hover:bg-gray-700 text-white text-xs py-2 rounded-lg font-medium transition-all"
+          >+ Add to Do</button>
           <button
             id="copy-btn"
             onclick="copyShareLink()"
@@ -189,6 +200,20 @@
       <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col">
         <h2 class="text-lg font-semibold text-gray-900 mb-4 tracking-tight">Done</h2>
         <div id="done-list" class="flex-1 min-h-[80px]"></div>
+        <div class="pt-4 border-t border-gray-100">
+          <input
+            id="done-input"
+            type="text"
+            placeholder="Log something completed…"
+            maxlength="100"
+            onkeypress="if(event.key==='Enter'){event.preventDefault();addDone()}"
+            class="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 mb-2"
+          />
+          <button
+            onclick="addDone()"
+            class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-medium transition-all"
+          >✓ Mark as Done</button>
+        </div>
       </div>
 
     </div>

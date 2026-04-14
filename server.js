@@ -75,7 +75,7 @@ app.post('/api/job-done/:id', (req, res) => {
 
 const ALLOWED_SETTINGS = [
   'day_start', 'day_end', 'slot_size_minutes',
-  'daily_print_time', 'week_wrapped_day', 'week_wrapped_time', 'timezone', 'goals',
+  'daily_print_time', 'week_wrapped_day', 'week_wrapped_time', 'timezone', 'daily_print_enabled',
 ];
 
 app.get('/api/settings', (req, res) => {
@@ -180,6 +180,33 @@ app.post('/api/accomplishments', (req, res) => {
 
 app.delete('/api/accomplishments/:id', (req, res) => {
   db.prepare('DELETE FROM accomplishments WHERE id = ?').run(parseInt(req.params.id, 10));
+  res.json({ success: true });
+});
+
+// ============================================================
+// Goals API
+// ============================================================
+
+app.get('/api/goals', (req, res) => {
+  res.json(db.prepare('SELECT * FROM goals ORDER BY created_at ASC').all());
+});
+
+app.post('/api/goals', (req, res) => {
+  const text = (req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'text is required' });
+  const result = db.prepare('INSERT INTO goals (text) VALUES (?)').run(text);
+  res.json({ id: result.lastInsertRowid });
+});
+
+app.put('/api/goals/:id', (req, res) => {
+  const text = (req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'text is required' });
+  db.prepare('UPDATE goals SET text = ? WHERE id = ?').run(text, parseInt(req.params.id, 10));
+  res.json({ success: true });
+});
+
+app.delete('/api/goals/:id', (req, res) => {
+  db.prepare('DELETE FROM goals WHERE id = ?').run(parseInt(req.params.id, 10));
   res.json({ success: true });
 });
 
@@ -338,9 +365,11 @@ cron.schedule('* * * * *', async () => {
     const { hour, minute } = getLocalTime(timezone);
     const today    = new Date().toISOString().split('T')[0];
 
-    // ── Daily print ──────────────────────────────────────
+    // ── Daily print (skip on wrap day) ───────────────────
+    const wrapDay  = parseInt(s.week_wrapped_day || '0', 10);
+    const enabled  = s.daily_print_enabled !== 'false';
     const [dailyHour, dailyMin] = (s.daily_print_time || '08:00').split(':').map(Number);
-    if (hour === dailyHour && minute === dailyMin && s.last_daily_print_date !== today) {
+    if (enabled && dayOfWeek !== wrapDay && hour === dailyHour && minute === dailyMin && s.last_daily_print_date !== today) {
       console.log(`[cron] Generating daily print for ${today}`);
       const content = await generateDailyPrintContent();
       db.prepare('INSERT INTO print_queue (content) VALUES (?)').run(content);
@@ -349,7 +378,6 @@ cron.schedule('* * * * *', async () => {
     }
 
     // ── Week Wrapped ─────────────────────────────────────
-    const wrapDay  = parseInt(s.week_wrapped_day  || '0', 10);
     const [wrapHour, wrapMin] = (s.week_wrapped_time || '09:00').split(':').map(Number);
     const dayOfWeek = getLocalDayOfWeek(timezone);
 

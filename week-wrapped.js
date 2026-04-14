@@ -69,18 +69,21 @@ async function generateSummary(accomplishments, goals) {
 async function generateWeekWrappedContent() {
   const s        = getAllSettings();
   const timezone = s.timezone || 'America/Los_Angeles';
-  const goals    = s.goals    || '';
   const lastWrap = s.last_week_wrapped_date || '';
 
-  // Fetch accomplishments since last wrap (or last 7 days on first run)
+  // Fetch completed todos since last wrap (or last 7 days on first run)
   const accomplishments = lastWrap
-    ? db.prepare('SELECT * FROM accomplishments WHERE created_at > ? ORDER BY created_at ASC').all(lastWrap)
-    : db.prepare("SELECT * FROM accomplishments WHERE created_at > datetime('now','-7 days') ORDER BY created_at ASC").all();
+    ? db.prepare("SELECT * FROM todos WHERE completed = 1 AND completed_at > ? ORDER BY completed_at ASC").all(lastWrap)
+    : db.prepare("SELECT * FROM todos WHERE completed = 1 AND completed_at > datetime('now','-7 days') ORDER BY completed_at ASC").all();
 
   if (accomplishments.length === 0) return null; // nothing to wrap
 
+  // Load goals from goals table
+  const goalRows = db.prepare('SELECT text FROM goals ORDER BY created_at ASC').all();
+  const goalsText = goalRows.map((g, i) => `${i + 1}. ${g.text}`).join('\n');
+
   const weekLabel = getWeekLabel(timezone, lastWrap);
-  const summary   = await generateSummary(accomplishments, goals);
+  const summary   = await generateSummary(accomplishments, goalsText);
 
   const lines = [];
   lines.push('=== WEEK, WRAPPED ===');

@@ -34,6 +34,12 @@ db.exec(`
     completed_at DATETIME
   );
 
+  CREATE TABLE IF NOT EXISTS goals (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    text       TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS accomplishments (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     text       TEXT NOT NULL,
@@ -61,7 +67,7 @@ const defaults = {
   week_wrapped_time:      '09:00',
   timezone:                'America/Los_Angeles',
   last_daily_print_date:   '',
-  goals:                   '',
+  daily_print_enabled:     'true',
   last_week_wrapped_date:  '',
 };
 

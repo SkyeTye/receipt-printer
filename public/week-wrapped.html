@@ -6,7 +6,6 @@
   <title>Week, Wrapped — Life Receipt</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    // ── Helpers ────────────────────────────────────────────
     function showBanner(id, duration = 3000) {
       const el = document.getElementById(id);
       el.classList.remove('hidden');
@@ -19,45 +18,94 @@
 
     // ── Goals ───────────────────────────────────────────────
     async function loadGoals() {
-      const res = await fetch('/api/settings');
-      const s   = await res.json();
-      document.getElementById('goals-input').value = s.goals || '';
+      const res   = await fetch('/api/goals');
+      const goals = await res.json();
+      renderGoals(goals);
     }
 
-    async function saveGoals() {
-      const goals = document.getElementById('goals-input').value;
-      const btn   = document.getElementById('goals-btn');
-      btn.disabled = true;
-      btn.textContent = 'Saving…';
-      await fetch('/api/settings', {
+    function renderGoals(goals) {
+      const list = document.getElementById('goals-list');
+      if (goals.length === 0) {
+        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-3">No goals yet.</p>';
+        return;
+      }
+      list.innerHTML = goals.map(g => `
+        <div id="goal-row-${g.id}" class="flex items-center gap-2 py-2 border-b border-gray-100 last:border-0 group">
+          <span class="text-gray-400 text-sm flex-shrink-0">•</span>
+          <span id="goal-text-${g.id}" class="flex-1 text-gray-800 text-sm">${escHtml(g.text)}</span>
+          <button onclick="startEditGoal(${g.id})" class="text-gray-300 hover:text-gray-600 text-xs opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">Edit</button>
+          <button onclick="deleteGoal(${g.id})" class="text-gray-200 hover:text-red-400 text-lg leading-none opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    function startEditGoal(id) {
+      const textEl = document.getElementById(`goal-text-${id}`);
+      const current = textEl.textContent;
+      textEl.outerHTML = `
+        <input
+          id="goal-edit-${id}"
+          type="text"
+          value="${escHtml(current)}"
+          maxlength="150"
+          class="flex-1 p-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+          onkeydown="if(event.key==='Enter') saveGoalEdit(${id}); if(event.key==='Escape') loadGoals();"
+        />
+      `;
+      const row = document.getElementById(`goal-row-${id}`);
+      row.querySelector('button[onclick*="startEditGoal"]').outerHTML =
+        `<button onclick="saveGoalEdit(${id})" class="text-gray-600 hover:text-gray-900 text-xs flex-shrink-0 font-medium">Save</button>`;
+      document.getElementById(`goal-edit-${id}`)?.focus();
+    }
+
+    async function saveGoalEdit(id) {
+      const input = document.getElementById(`goal-edit-${id}`);
+      if (!input) return;
+      const text = input.value.trim();
+      if (!text) return;
+      await fetch(`/api/goals/${id}`, {
+        method:  'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ text }),
+      });
+      loadGoals();
+    }
+
+    async function addGoal(e) {
+      e.preventDefault();
+      const input = document.getElementById('goal-input');
+      const text  = input.value.trim();
+      if (!text) return;
+      const res = await fetch('/api/goals', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ goals }),
+        body:    JSON.stringify({ text }),
       });
-      btn.disabled = false;
-      btn.textContent = 'Save Goals';
-      showBanner('goals-saved');
+      if (res.ok) { input.value = ''; loadGoals(); }
     }
 
-    // ── Accomplishments ─────────────────────────────────────
-    async function loadAccomplishments() {
-      const res  = await fetch('/api/accomplishments');
-      const list = await res.json();
-      renderAccomplishments(list);
+    async function deleteGoal(id) {
+      await fetch(`/api/goals/${id}`, { method: 'DELETE' });
+      loadGoals();
     }
 
-    function renderAccomplishments(items) {
-      const container = document.getElementById('accomplishments-list');
+    // ── This week (completed todos) ─────────────────────────
+    async function loadThisWeek() {
+      const res   = await fetch('/api/accomplishments');
+      const items = await res.json();
+      renderThisWeek(items);
+    }
 
+    function renderThisWeek(items) {
+      const container = document.getElementById('this-week-list');
       if (items.length === 0) {
-        container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Nothing logged yet this week.</p>';
+        container.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Nothing completed yet this week.</p>';
         return;
       }
 
-      // Group by local date
       const groups = {};
       for (const item of items) {
-        const key = new Date(item.created_at).toLocaleDateString('en-US', {
+        const key = new Date(item.completed_at || item.created_at).toLocaleDateString('en-US', {
           weekday: 'long', month: 'short', day: 'numeric'
         });
         if (!groups[key]) groups[key] = [];
@@ -68,37 +116,13 @@
         <div class="mb-4">
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">${day}</p>
           ${entries.map(e => `
-            <div class="flex items-start gap-3 py-2 border-b border-gray-100 last:border-0 group">
-              <span class="text-gray-400 mt-0.5 text-sm">•</span>
-              <span class="flex-1 text-gray-800 text-sm">${escHtml(e.text)}</span>
-              <button onclick="deleteAccomplishment(${e.id})" class="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none flex-shrink-0">&times;</button>
+            <div class="flex items-start gap-2 py-1.5">
+              <span class="text-gray-300 mt-0.5 text-sm flex-shrink-0">✓</span>
+              <span class="text-gray-700 text-sm">${escHtml(e.text)}</span>
             </div>
           `).join('')}
         </div>
       `).join('');
-    }
-
-    async function addAccomplishment(e) {
-      e.preventDefault();
-      const input = document.getElementById('accomplishment-input');
-      const text  = input.value.trim();
-      if (!text) return;
-
-      const res = await fetch('/api/accomplishments', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ text }),
-      });
-
-      if (res.ok) {
-        input.value = '';
-        loadAccomplishments();
-      }
-    }
-
-    async function deleteAccomplishment(id) {
-      await fetch(`/api/accomplishments/${id}`, { method: 'DELETE' });
-      loadAccomplishments();
     }
 
     // ── Print Now ───────────────────────────────────────────
@@ -106,13 +130,12 @@
       const btn = document.getElementById('print-now-btn');
       btn.disabled = true;
       btn.textContent = 'Generating…';
-
       try {
-        const res = await fetch('/api/week-wrapped/trigger', { method: 'POST' });
+        const res  = await fetch('/api/week-wrapped/trigger', { method: 'POST' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Unknown error');
         showBanner('print-success-banner');
-        loadAccomplishments(); // list will be empty after wrap resets the window
+        loadThisWeek();
       } catch (err) {
         document.getElementById('print-error-text').textContent = err.message;
         showBanner('print-error-banner', 6000);
@@ -122,29 +145,23 @@
       }
     }
 
-    window.onload = () => {
-      loadGoals();
-      loadAccomplishments();
-    };
+    window.onload = () => { loadGoals(); loadThisWeek(); };
   </script>
 </head>
 <body class="min-h-screen py-12 px-4 font-sans">
   <div class="max-w-lg mx-auto space-y-6">
 
-    <!-- Header -->
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-4">
         <a href="/" class="text-sm text-gray-500 hover:text-gray-800 transition-colors">← Back</a>
         <h1 class="text-3xl font-semibold text-gray-900 tracking-tight">Week, Wrapped</h1>
       </div>
-      <button
-        id="print-now-btn"
-        onclick="printNow()"
-        class="bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white text-sm px-4 py-2 rounded-lg font-medium transition-all"
-      >Print Now</button>
+      <button id="print-now-btn" onclick="printNow()"
+        class="bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white text-sm px-4 py-2 rounded-lg font-medium transition-all">
+        Print Now
+      </button>
     </div>
 
-    <!-- Banners -->
     <div id="print-success-banner" class="hidden p-3 bg-green-100 text-green-800 rounded-lg text-sm text-center">
       Week Wrapped queued — printing within 30 seconds.
     </div>
@@ -156,46 +173,24 @@
     <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-3">
       <div>
         <h2 class="text-base font-semibold text-gray-800">Goals</h2>
-        <p class="text-sm text-gray-500">Claude uses these to frame your weekly summary. Update them whenever.</p>
+        <p class="text-sm text-gray-500">Claude uses these to frame your weekly summary. Hover a goal to edit or remove it.</p>
       </div>
-      <textarea
-        id="goals-input"
-        placeholder="e.g. Book a lead role in a feature film. Build crowdfunding to $50k. Write one page a day."
-        class="w-full p-3 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-300"
-        rows="4"
-      ></textarea>
-      <div class="flex items-center gap-3">
-        <button
-          id="goals-btn"
-          onclick="saveGoals()"
-          class="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white text-sm px-5 py-2 rounded-lg font-medium transition-all"
-        >Save Goals</button>
-        <p id="goals-saved" class="hidden text-green-600 text-sm">Saved.</p>
-      </div>
+      <div id="goals-list"></div>
+      <form onsubmit="addGoal(event)" class="flex gap-2 pt-3 border-t border-gray-100">
+        <input id="goal-input" type="text" placeholder="Add a goal…" maxlength="150"
+          class="flex-1 p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300" />
+        <button type="submit"
+          class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 rounded-lg font-medium transition-all">Add</button>
+      </form>
     </section>
 
     <!-- This Week -->
-    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
+    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-3">
       <div>
         <h2 class="text-base font-semibold text-gray-800">This Week</h2>
-        <p class="text-sm text-gray-500">Log things as you do them. These print on Sunday's receipt and reset after.</p>
+        <p class="text-sm text-gray-500">Everything you've completed since the last wrap. Log things from the <a href="/" class="underline hover:text-gray-800">home page</a>.</p>
       </div>
-
-      <div id="accomplishments-list"></div>
-
-      <form onsubmit="addAccomplishment(event)" class="flex gap-2 pt-2 border-t border-gray-100">
-        <input
-          id="accomplishment-input"
-          type="text"
-          placeholder="What did you accomplish?"
-          maxlength="150"
-          class="flex-1 p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-        />
-        <button
-          type="submit"
-          class="bg-gray-800 hover:bg-gray-700 text-white text-sm px-4 rounded-lg font-medium transition-all"
-        >Add</button>
-      </form>
+      <div id="this-week-list"></div>
     </section>
 
   </div>
