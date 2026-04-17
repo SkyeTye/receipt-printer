@@ -124,7 +124,7 @@ app.delete('/api/time-blocks/:id', (req, res) => {
 
 app.get('/api/todos', (req, res) => {
   const todos = db.prepare(
-    'SELECT * FROM todos ORDER BY completed ASC, created_at ASC'
+    'SELECT * FROM todos ORDER BY completed ASC, position ASC, created_at ASC'
   ).all();
   res.json(todos);
 });
@@ -135,10 +135,20 @@ app.post('/api/todos', (req, res) => {
 
   const completed = req.body.completed ? 1 : 0;
   const now       = new Date().toISOString();
+  const maxPos    = db.prepare('SELECT COALESCE(MAX(position), 0) as m FROM todos WHERE completed = 0').get().m;
   const result    = db.prepare(
-    'INSERT INTO todos (text, completed, completed_at) VALUES (?, ?, ?)'
-  ).run(text, completed, completed ? now : null);
+    'INSERT INTO todos (text, completed, completed_at, position) VALUES (?, ?, ?, ?)'
+  ).run(text, completed, completed ? now : null, completed ? 0 : maxPos + 1);
   res.json({ id: result.lastInsertRowid });
+});
+
+app.put('/api/todos/reorder', (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  const update = db.prepare('UPDATE todos SET position = ? WHERE id = ?');
+  const tx = db.transaction(() => ids.forEach((id, i) => update.run(i, id)));
+  tx();
+  res.json({ success: true });
 });
 
 app.post('/api/todos/:id/complete', (req, res) => {
@@ -365,6 +375,8 @@ cron.schedule('* * * * *', async () => {
     const { hour, minute } = getLocalTime(timezone);
     const today    = new Date().toISOString().split('T')[0];
 
+    const dayOfWeek = getLocalDayOfWeek(timezone);
+
     // ── Daily print (skip on wrap day) ───────────────────
     const wrapDay  = parseInt(s.week_wrapped_day || '0', 10);
     const enabled  = s.daily_print_enabled !== 'false';
@@ -379,7 +391,6 @@ cron.schedule('* * * * *', async () => {
 
     // ── Week Wrapped ─────────────────────────────────────
     const [wrapHour, wrapMin] = (s.week_wrapped_time || '09:00').split(':').map(Number);
-    const dayOfWeek = getLocalDayOfWeek(timezone);
 
     if (dayOfWeek === wrapDay && hour === wrapHour && minute === wrapMin && s.last_week_wrapped_date?.split('T')[0] !== today) {
       console.log('[cron] Generating Week Wrapped...');

@@ -6,6 +6,7 @@
   <title>Life Receipt</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
   <script>
     // ── Share link ──────────────────────────────────────────
     async function copyShareLink() {
@@ -38,7 +39,8 @@
         return;
       }
       list.innerHTML = todos.map(todo => `
-        <div class="flex items-center gap-3 py-2.5 border-b border-gray-100 last:border-0 group">
+        <div data-id="${todo.id}" class="flex items-center gap-2 py-2.5 border-b border-gray-100 last:border-0 group">
+          <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-200 hover:text-gray-400 select-none flex-shrink-0 text-base leading-none" title="Drag to reorder">⠿</span>
           <button
             onclick="toggleTodo(${todo.id})"
             class="w-5 h-5 rounded border-2 border-gray-300 hover:border-gray-500 flex-shrink-0 flex items-center justify-center transition-colors"
@@ -48,6 +50,20 @@
           <button onclick="deleteTodo(${todo.id})" class="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none">&times;</button>
         </div>
       `).join('');
+
+      Sortable.create(list, {
+        handle: '.drag-handle',
+        animation: 150,
+        ghostClass: 'opacity-40',
+        onEnd: async () => {
+          const ids = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
+          await fetch('/api/todos/reorder', {
+            method:  'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ ids }),
+          });
+        },
+      });
     }
 
     function renderDone(todos) {
@@ -171,7 +187,10 @@
 
       <!-- DO -->
       <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4 tracking-tight">Do</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-900 tracking-tight">Do</h2>
+          <button id="copy-btn" onclick="copyShareLink()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Copy share link</button>
+        </div>
 
         <div id="do-list" class="flex-1 mb-4 min-h-[80px]"></div>
 
@@ -188,11 +207,6 @@
             onclick="addTodo(false)"
             class="w-full bg-gray-900 hover:bg-gray-700 text-white text-xs py-2 rounded-lg font-medium transition-all"
           >+ Add to Do</button>
-          <button
-            id="copy-btn"
-            onclick="copyShareLink()"
-            class="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors py-1"
-          >Copy share link</button>
         </div>
       </div>
 

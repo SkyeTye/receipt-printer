@@ -31,7 +31,8 @@ db.exec(`
     text         TEXT NOT NULL,
     completed    INTEGER NOT NULL DEFAULT 0,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    completed_at DATETIME
+    completed_at DATETIME,
+    position     INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS goals (
@@ -55,6 +56,13 @@ db.exec(`
     scope         TEXT
   );
 `);
+
+// Migrations — safe to run on existing databases
+try {
+  db.exec('ALTER TABLE todos ADD COLUMN position INTEGER NOT NULL DEFAULT 0');
+  // Initialize positions from insertion order so existing todos stay in place
+  db.exec('UPDATE todos SET position = id');
+} catch (_) { /* column already exists */ }
 
 // Seed defaults (INSERT OR IGNORE — never overwrites existing values)
 const seedSetting = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
