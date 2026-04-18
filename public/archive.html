@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en" class="bg-gray-50 text-gray-900">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Archive — Life Receipt</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    let allItems = [];
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function loadArchive() {
+      const res   = await fetch('/api/todos');
+      const todos = await res.json();
+      allItems = todos
+        .filter(t => t.completed && t.completed_at)
+        .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+      render();
+    }
+
+    function render() {
+      const container = document.getElementById('archive-list');
+      const query     = document.getElementById('search-input').value.trim().toLowerCase();
+      const filtered  = query ? allItems.filter(i => i.text.toLowerCase().includes(query)) : allItems;
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-gray-400 text-sm text-center py-8">No items found.</p>';
+        return;
+      }
+
+      // Group by calendar date in the user's local timezone
+      const groups = {};
+      for (const item of filtered) {
+        const key = new Date(item.completed_at).toLocaleDateString('en-US', {
+          weekday: 'long', month: 'short', day: 'numeric', year: 'numeric',
+        });
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(item);
+      }
+
+      container.innerHTML = Object.entries(groups).map(([day, entries]) => `
+        <div class="mb-5">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">${day}</p>
+          ${entries.map(e => `
+            <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0">
+              <span class="text-gray-300 text-sm flex-shrink-0">✓</span>
+              <span class="flex-1 text-gray-700 text-sm">${escHtml(e.text)}</span>
+              <span class="text-gray-400 text-xs flex-shrink-0">${new Date(e.completed_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }
+
+    window.onload = loadArchive;
+  </script>
+</head>
+<body class="min-h-screen py-12 px-4 font-sans">
+  <div class="max-w-lg mx-auto space-y-6">
+
+    <div class="flex items-center gap-4">
+      <a href="/" class="text-sm text-gray-500 hover:text-gray-800 transition-colors">← Back</a>
+      <h1 class="text-3xl font-semibold text-gray-900 tracking-tight">Archive</h1>
+    </div>
+
+    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
+      <input
+        id="search-input"
+        type="search"
+        placeholder="Search completed items…"
+        oninput="render()"
+        class="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+      />
+      <div id="archive-list">
+        <p class="text-gray-400 text-sm text-center py-8">Loading…</p>
+      </div>
+    </section>
+
+  </div>
+</body>
+</html>

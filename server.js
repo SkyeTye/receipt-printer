@@ -32,6 +32,9 @@ app.get('/daily', (req, res) =>
 app.get('/week-wrapped', (req, res) =>
   res.sendFile(path.join(__dirname, 'public', 'week-wrapped.html')));
 
+app.get('/archive', (req, res) =>
+  res.sendFile(path.join(__dirname, 'public', 'archive.html')));
+
 // ============================================================
 // Instant Print
 // ============================================================
