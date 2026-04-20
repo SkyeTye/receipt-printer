@@ -1,10 +1,43 @@
 <!DOCTYPE html>
-<html lang="en" class="bg-gray-50 text-gray-900">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Leave Skye a note</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    :root {
+      --bg:#f0f0f3; --text:#3a3a4a; --text-2:#7a7a8a; --text-3:#b8b8c8;
+      --accent:#6366f1; --accent-bg:rgba(99,102,241,.1);
+      --sh-l:#ffffff; --sh-d:#d1d1d9;
+    }
+    *{box-sizing:border-box;}
+    body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;-webkit-font-smoothing:antialiased;}
+    h2{font-size:14px;font-weight:600;color:var(--text);}
+    p{font-size:13px;line-height:1.5;color:var(--text-2);}
+
+    .nm-card{background:var(--bg);border-radius:22px;padding:22px;box-shadow:-8px -8px 16px var(--sh-l),8px 8px 16px var(--sh-d);}
+    .nm-btn{display:inline-flex;align-items:center;justify-content:center;background:var(--bg);border:none;border-radius:12px;box-shadow:-4px -4px 10px var(--sh-l),4px 4px 10px var(--sh-d);color:var(--text);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;padding:10px 18px;transition:box-shadow .15s,transform .1s;width:100%;}
+    .nm-btn:hover{box-shadow:-5px -5px 12px var(--sh-l),5px 5px 12px var(--sh-d);}
+    .nm-btn:active{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px var(--sh-d);transform:scale(.98);}
+    .nm-btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none;}
+    .nm-btn-primary{background:var(--accent);color:#fff;box-shadow:-3px -3px 8px rgba(255,255,255,.5),4px 4px 10px rgba(80,80,200,.45);}
+    .nm-btn-primary:hover{background:#5254d4;}
+    .nm-btn-primary:active{background:#4b4cbf;box-shadow:inset -2px -2px 5px rgba(255,255,255,.25),inset 2px 2px 5px rgba(40,40,130,.4);}
+
+    .nm-input,.nm-textarea{background:var(--bg);border:none;border-radius:12px;box-shadow:inset -4px -4px 8px var(--sh-l),inset 4px 4px 8px var(--sh-d);color:var(--text);font-family:inherit;font-size:13px;outline:none;padding:11px 14px;width:100%;transition:box-shadow .15s;}
+    .nm-input:focus,.nm-textarea:focus{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px #c5c5d0,0 0 0 2px var(--accent-bg);}
+    .nm-input::placeholder,.nm-textarea::placeholder{color:var(--text-3);}
+    .nm-textarea{resize:none;}
+
+    .nm-banner{border-radius:12px;box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px var(--sh-d);padding:10px 14px;font-size:13px;text-align:center;font-weight:500;}
+    .nm-banner-success{color:#3da870;}
+    .nm-banner-error{color:#e05353;}
+    ::-webkit-scrollbar{width:4px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--sh-d);border-radius:4px;}
+  </style>
   <script>
     async function submitTodo(e) {
       e.preventDefault();
@@ -15,18 +48,14 @@
       const text    = input.value.trim();
       if (!text) return;
 
-      btn.disabled = true;
-      btn.textContent = 'Adding…';
+      btn.disabled = true; btn.textContent = 'Adding…';
       error.classList.add('hidden');
-
       try {
         const res = await fetch(window.location.pathname, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ text }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
         });
         if (!res.ok) throw new Error();
-
         success.textContent = `Added "${text}" to his list!`;
         input.value = '';
         success.classList.remove('hidden');
@@ -34,8 +63,7 @@
       } catch {
         error.classList.remove('hidden');
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'Add to list';
+        btn.disabled = false; btn.textContent = 'Add to list';
       }
     }
 
@@ -48,77 +76,70 @@
       const text    = input.value.trim();
       if (!text) return;
 
-      btn.disabled = true;
-      btn.textContent = 'Sending…';
+      btn.disabled = true; btn.textContent = 'Sending…';
       error.classList.add('hidden');
-
       try {
         const res = await fetch(window.location.pathname + '/message', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ text }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
         });
         if (!res.ok) throw new Error();
-
         input.value = '';
         success.classList.remove('hidden');
         setTimeout(() => success.classList.add('hidden'), 2500);
       } catch {
         error.classList.remove('hidden');
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'Send to printer';
+        btn.disabled = false; btn.textContent = 'Send to printer';
       }
     }
   </script>
 </head>
-<body class="min-h-screen flex items-center justify-center px-4 py-12 font-sans">
-  <div class="w-full max-w-sm space-y-6">
+<body>
+  <div style="width:100%;max-width:360px;" class="space-y-5">
 
-    <div class="text-center">
-      <h1 class="text-2xl font-semibold text-gray-900 mb-1">Hey, Skye</h1>
-      <p class="text-sm text-gray-500">Leave him a note or add something to his list.</p>
+    <div style="text-align:center;margin-bottom:8px;">
+      <p style="font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px;">Life Receipt</p>
+      <h1 style="font-size:22px;font-weight:700;letter-spacing:-.2px;">Hey, Skye</h1>
+      <p style="margin-top:4px;">Leave him a note or add something to his list.</p>
     </div>
 
-    <!-- To-do -->
-    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-3">
-      <h2 class="text-sm font-semibold text-gray-700 tracking-wide uppercase">Add to his list</h2>
+    <!-- Add to list -->
+    <div class="nm-card space-y-3">
+      <div>
+        <h2>Add to his list</h2>
+        <p style="margin-top:2px;">Drops into his to-do list.</p>
+      </div>
       <textarea
         id="task-input"
+        class="nm-textarea"
         maxlength="100"
         placeholder="Something he should do…"
         onkeypress="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();submitTodo(event)}"
-        class="w-full p-3 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-300"
         rows="2"
         autofocus
       ></textarea>
-      <button
-        id="task-btn"
-        onclick="submitTodo(event)"
-        class="w-full bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-medium transition-all"
-      >Add to list</button>
-      <p id="task-success" class="hidden text-green-600 text-sm text-center"></p>
-      <p id="task-error"   class="hidden text-red-500 text-sm text-center">Something went wrong. Try again.</p>
+      <button id="task-btn" onclick="submitTodo(event)" class="nm-btn nm-btn-primary" style="padding:11px;">Add to list</button>
+      <p id="task-success" class="hidden nm-banner nm-banner-success"></p>
+      <p id="task-error"   class="hidden nm-banner nm-banner-error">Something went wrong. Try again.</p>
     </div>
 
-    <!-- Message -->
-    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 space-y-3">
-      <h2 class="text-sm font-semibold text-gray-700 tracking-wide uppercase">Leave a message</h2>
-      <p class="text-xs text-gray-400">Prints directly on his receipt printer.</p>
+    <!-- Leave a message -->
+    <div class="nm-card space-y-3">
+      <div>
+        <h2>Leave a message</h2>
+        <p style="margin-top:2px;">Prints directly on his receipt printer.</p>
+      </div>
       <textarea
         id="message-input"
+        class="nm-textarea"
         maxlength="500"
         placeholder="Write him something…"
-        class="w-full p-3 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-300"
-        rows="6"
+        rows="5"
       ></textarea>
-      <button
-        id="message-btn"
-        onclick="submitMessage(event)"
-        class="w-full bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white py-2.5 rounded-xl text-sm font-medium transition-all"
-      >Send to printer</button>
-      <p id="message-success" class="hidden text-green-600 text-sm text-center">Message sent — it's printing now!</p>
-      <p id="message-error"   class="hidden text-red-500 text-sm text-center">Something went wrong. Try again.</p>
+      <button id="message-btn" onclick="submitMessage(event)" class="nm-btn" style="padding:11px;">Send to printer</button>
+      <p id="message-success" class="hidden nm-banner nm-banner-success">Message sent — it's printing now!</p>
+      <p id="message-error"   class="hidden nm-banner nm-banner-error">Something went wrong. Try again.</p>
     </div>
 
   </div>

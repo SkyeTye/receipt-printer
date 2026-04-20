@@ -1,12 +1,79 @@
 <!DOCTYPE html>
-<html lang="en" class="bg-gray-50 text-gray-900">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Daily Planner — Life Receipt</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    :root {
+      --bg:#f0f0f3; --text:#3a3a4a; --text-2:#7a7a8a; --text-3:#b8b8c8;
+      --accent:#6366f1; --accent-bg:rgba(99,102,241,.1);
+      --sh-l:#ffffff; --sh-d:#d1d1d9;
+    }
+    *{box-sizing:border-box;}
+    body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+    h1{font-size:22px;font-weight:700;letter-spacing:-.3px;}
+    h2{font-size:15px;font-weight:600;color:var(--text);}
+    p{font-size:13px;line-height:1.5;color:var(--text-2);}
+
+    .nm-card{background:var(--bg);border-radius:22px;padding:22px;box-shadow:-8px -8px 16px var(--sh-l),8px 8px 16px var(--sh-d);}
+    .nm-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--bg);border:none;border-radius:12px;box-shadow:-4px -4px 10px var(--sh-l),4px 4px 10px var(--sh-d);color:var(--text);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;padding:10px 18px;transition:box-shadow .15s,transform .1s;text-decoration:none;white-space:nowrap;}
+    .nm-btn:hover{box-shadow:-5px -5px 12px var(--sh-l),5px 5px 12px var(--sh-d);}
+    .nm-btn:active{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px var(--sh-d);transform:scale(.98);}
+    .nm-btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none;}
+    .nm-btn-primary{background:var(--accent);color:#fff;box-shadow:-3px -3px 8px rgba(255,255,255,.5),4px 4px 10px rgba(80,80,200,.45);}
+    .nm-btn-primary:hover{background:#5254d4;}
+    .nm-btn-primary:active{background:#4b4cbf;box-shadow:inset -2px -2px 5px rgba(255,255,255,.25),inset 2px 2px 5px rgba(40,40,130,.4);}
+    .nm-btn-ghost{background:transparent;box-shadow:none;color:var(--text-3);padding:4px 8px;font-size:12px;}
+    .nm-btn-ghost:hover{color:var(--text-2);box-shadow:none;}
+    .nm-btn-ghost:active{box-shadow:none;transform:none;}
+    .nm-btn-danger{color:#e05353;}
+    .nm-btn-danger:hover{color:#c03030;}
+
+    .nm-input,.nm-select{background:var(--bg);border:none;border-radius:12px;box-shadow:inset -4px -4px 8px var(--sh-l),inset 4px 4px 8px var(--sh-d);color:var(--text);font-family:inherit;font-size:13px;outline:none;padding:11px 14px;width:100%;transition:box-shadow .15s;}
+    .nm-input:focus,.nm-select:focus{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px #c5c5d0,0 0 0 2px var(--accent-bg);}
+    .nm-input::placeholder{color:var(--text-3);}
+    .nm-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a7a8a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;cursor:pointer;}
+
+    .nm-nav-wrap{position:sticky;top:0;z-index:20;background:var(--bg);padding:16px 16px 12px;}
+    .nm-nav-inner{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .nm-brand{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);text-decoration:none;opacity:.65;white-space:nowrap;flex-shrink:0;}
+    .nm-nav{display:flex;align-items:center;background:var(--bg);border-radius:100px;box-shadow:-5px -5px 10px var(--sh-l),5px 5px 10px var(--sh-d);padding:4px;gap:2px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+    .nm-nav::-webkit-scrollbar{display:none;}
+    .nm-nav a{border-radius:100px;padding:6px 13px;font-size:12px;font-weight:500;text-decoration:none;color:var(--text-2);white-space:nowrap;flex-shrink:0;transition:color .2s,box-shadow .2s;}
+    .nm-nav a:hover{color:var(--text);}
+    .nm-nav a.active{box-shadow:inset -2px -2px 5px var(--sh-l),inset 2px 2px 5px var(--sh-d);color:var(--accent);font-weight:600;}
+
+    /* Toggle */
+    .nm-toggle{position:relative;display:inline-block;width:44px;height:24px;cursor:pointer;flex-shrink:0;}
+    .nm-toggle input{display:none;}
+    .nm-toggle-track{position:absolute;inset:0;background:var(--bg);border-radius:100px;box-shadow:inset -3px -3px 5px var(--sh-l),inset 3px 3px 5px var(--sh-d);transition:background .2s,box-shadow .2s;}
+    .nm-toggle-thumb{position:absolute;width:18px;height:18px;background:var(--bg);border-radius:50%;box-shadow:-2px -2px 4px var(--sh-l),2px 2px 4px var(--sh-d);top:3px;left:3px;transition:transform .2s,box-shadow .2s;}
+    .nm-toggle input:checked ~ .nm-toggle-track{background:var(--accent);box-shadow:inset -2px -2px 4px rgba(255,255,255,.2),inset 2px 2px 4px rgba(50,50,160,.35);}
+    .nm-toggle input:checked ~ .nm-toggle-track .nm-toggle-thumb{transform:translateX(20px);background:rgba(255,255,255,.88);box-shadow:-1px -1px 3px rgba(255,255,255,.4),2px 2px 4px rgba(50,50,160,.3);}
+
+    /* Status dot */
+    .status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .status-dot-green{background:#3da870;box-shadow:0 0 6px rgba(61,168,112,.5);}
+
+    /* Receipt preview */
+    .nm-receipt{background:#fffbef;border-radius:14px;box-shadow:inset -3px -3px 8px rgba(255,255,255,.9),inset 3px 3px 8px rgba(180,150,60,.1);padding:18px 20px;overflow-x:auto;}
+    .nm-receipt pre{font-family:'Courier New',Courier,monospace;font-size:11px;color:#5a4a1a;line-height:1.7;white-space:pre;}
+
+    /* Banners */
+    .nm-banner{border-radius:12px;box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px var(--sh-d);padding:10px 14px;font-size:13px;text-align:center;font-weight:500;}
+    .nm-banner-success{color:#3da870;}
+    .nm-banner-error{color:#e05353;}
+
+    .nm-divider{border:none;height:1px;background:linear-gradient(90deg,transparent,var(--sh-d) 20%,var(--sh-d) 80%,transparent);opacity:.45;margin:2px 0;}
+    .nm-label{font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px;}
+    ::-webkit-scrollbar{width:4px;height:4px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--sh-d);border-radius:4px;}
+  </style>
   <script>
-    // ── Helpers ────────────────────────────────────────────
     function showBanner(id, duration = 3000) {
       const el = document.getElementById(id);
       el.classList.remove('hidden');
@@ -15,26 +82,21 @@
 
     function formatDuration(mins) {
       if (mins < 60) return `${mins}m`;
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
+      const h = Math.floor(mins / 60), m = mins % 60;
       return m ? `${h}h ${m}m` : `${h}h`;
     }
 
-    // ── Preview ─────────────────────────────────────────────
     async function loadPreview() {
       const loading = document.getElementById('preview-loading');
       const content = document.getElementById('preview-content');
       const error   = document.getElementById('preview-error');
-
       loading.classList.remove('hidden');
       content.classList.add('hidden');
       error.classList.add('hidden');
-
       try {
-        const res  = await fetch('/api/daily-print/preview');
+        const res = await fetch('/api/daily-print/preview');
         if (!res.ok) throw new Error((await res.json()).error || 'Failed');
         const { content: text } = await res.json();
-
         document.getElementById('preview-text').textContent = text;
         loading.classList.add('hidden');
         content.classList.remove('hidden');
@@ -45,14 +107,11 @@
       }
     }
 
-    // ── Calendar status ────────────────────────────────────
     async function loadCalendarStatus() {
       const res = await fetch('/api/calendar/status');
       const { connected } = await res.json();
-
       document.getElementById('cal-connected').classList.toggle('hidden', !connected);
       document.getElementById('cal-disconnected').classList.toggle('hidden', connected);
-
       const params = new URLSearchParams(window.location.search);
       if (params.get('connected')) { showBanner('cal-success-banner'); loadPreview(); }
       if (params.get('error'))     showBanner('cal-error-banner');
@@ -62,29 +121,25 @@
     async function disconnectCalendar() {
       if (!confirm('Disconnect Google Calendar?')) return;
       await fetch('/auth/google/disconnect', { method: 'POST' });
-      loadCalendarStatus();
-      loadPreview();
+      loadCalendarStatus(); loadPreview();
     }
 
-    // ── Time Blocks ─────────────────────────────────────────
     async function loadTimeBlocks() {
       const res    = await fetch('/api/time-blocks');
       const blocks = await res.json();
       const list   = document.getElementById('blocks-list');
-
       if (blocks.length === 0) {
-        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">No time blocks yet.</p>';
+        list.innerHTML = '<p style="color:var(--text-3);font-size:13px;text-align:center;padding:16px 0;">No time blocks yet.</p>';
         return;
       }
-
       list.innerHTML = blocks.map(b => `
-        <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-          <div>
-            <span class="font-mono text-sm text-gray-500">${b.start_time}</span>
-            <span class="ml-3 text-gray-800">${b.label}</span>
-            <span class="ml-2 text-xs text-gray-400">${formatDuration(b.duration_minutes)}</span>
+        <div class="flex items-center justify-between py-2.5" style="border-bottom:1px solid rgba(0,0,0,.04);">
+          <div class="flex items-center gap-3">
+            <span style="font-family:'Courier New',monospace;font-size:12px;color:var(--text-3);">${b.start_time}</span>
+            <span style="font-size:13px;font-weight:500;">${b.label}</span>
+            <span style="font-size:11px;color:var(--text-3);">${formatDuration(b.duration_minutes)}</span>
           </div>
-          <button onclick="deleteBlock(${b.id})" class="text-gray-300 hover:text-red-400 transition-colors ml-4 text-lg leading-none">&times;</button>
+          <button onclick="deleteBlock(${b.id})" class="nm-btn nm-btn-ghost" style="font-size:17px;line-height:1;padding:3px 7px;">&times;</button>
         </div>
       `).join('');
     }
@@ -94,32 +149,21 @@
       const label    = document.getElementById('block-label').value.trim();
       const start    = document.getElementById('block-start').value;
       const duration = document.getElementById('block-duration').value;
-
       const res = await fetch('/api/time-blocks', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ label, start_time: start, duration_minutes: duration }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label, start_time: start, duration_minutes: duration }),
       });
-
-      if (res.ok) {
-        e.target.reset();
-        loadTimeBlocks();
-        loadPreview();
-      }
+      if (res.ok) { e.target.reset(); loadTimeBlocks(); loadPreview(); }
     }
 
     async function deleteBlock(id) {
       await fetch(`/api/time-blocks/${id}`, { method: 'DELETE' });
-      loadTimeBlocks();
-      loadPreview();
+      loadTimeBlocks(); loadPreview();
     }
 
-    // ── Print Now ───────────────────────────────────────────
     async function printNow() {
       const btn = document.getElementById('print-now-btn');
-      btn.disabled = true;
-      btn.textContent = 'Generating…';
-
+      btn.disabled = true; btn.textContent = 'Generating…';
       try {
         const res = await fetch('/api/daily-print/trigger', { method: 'POST' });
         if (!res.ok) throw new Error((await res.json()).error || 'Unknown error');
@@ -128,12 +172,10 @@
         document.getElementById('print-error-text').textContent = err.message;
         showBanner('print-error-banner', 5000);
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'Print Now';
+        btn.disabled = false; btn.textContent = 'Print Now';
       }
     }
 
-    // ── Daily print toggle ──────────────────────────────────
     async function loadDailyPrintToggle() {
       const res = await fetch('/api/settings');
       const s   = await res.json();
@@ -143,134 +185,103 @@
     async function saveDailyPrintToggle() {
       const enabled = document.getElementById('daily-enabled-toggle').checked;
       await fetch('/api/settings', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ daily_print_enabled: enabled ? 'true' : 'false' }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ daily_print_enabled: enabled ? 'true' : 'false' }),
       });
     }
 
-    // ── Init ─────────────────────────────────────────────────
     window.onload = () => {
-      loadCalendarStatus();
-      loadTimeBlocks();
-      loadPreview();
-      loadDailyPrintToggle();
+      document.querySelectorAll('.nm-nav a').forEach(a => { if (a.pathname === location.pathname) a.classList.add('active'); });
+      loadCalendarStatus(); loadTimeBlocks(); loadPreview(); loadDailyPrintToggle();
     };
   </script>
 </head>
-<body class="min-h-screen py-12 px-4 font-sans">
-  <div class="max-w-lg mx-auto space-y-6">
+<body>
+  <header class="nm-nav-wrap">
+    <div class="nm-nav-inner">
+      <a href="/" class="nm-brand">Life Receipt</a>
+      <nav class="nm-nav">
+        <a href="/">Home</a>
+        <a href="/daily">Daily</a>
+        <a href="/week-wrapped">Week Wrapped</a>
+        <a href="/archive">Archive</a>
+        <a href="/settings">Settings</a>
+      </nav>
+    </div>
+  </header>
 
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <a href="/" class="text-sm text-gray-500 hover:text-gray-800 transition-colors">← Back</a>
-        <h1 class="text-3xl font-semibold text-gray-900 tracking-tight">Daily Planner</h1>
-      </div>
+  <main style="max-width:560px;margin:0 auto;padding:8px 16px 48px;">
+
+    <!-- Page header -->
+    <div class="flex items-center justify-between mb-5">
+      <h1>Daily Planner</h1>
       <div class="flex items-center gap-3">
-        <label class="flex items-center gap-2 cursor-pointer select-none" title="Enable or disable automatic daily receipts">
-          <span class="text-xs text-gray-500">Auto-print</span>
-          <div class="relative">
-            <input id="daily-enabled-toggle" type="checkbox" class="sr-only peer" onchange="saveDailyPrintToggle()" checked />
-            <div class="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-gray-800 transition-colors"></div>
-            <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
-          </div>
+        <label class="nm-toggle" title="Enable or disable scheduled daily receipts">
+          <input id="daily-enabled-toggle" type="checkbox" onchange="saveDailyPrintToggle()" checked />
+          <div class="nm-toggle-track"><div class="nm-toggle-thumb"></div></div>
         </label>
-        <button
-          id="print-now-btn"
-          onclick="printNow()"
-          class="bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white text-sm px-4 py-2 rounded-lg font-medium transition-all"
-        >
-          Print Now
-        </button>
+        <span style="font-size:12px;color:var(--text-2);">Auto-print</span>
+        <button id="print-now-btn" onclick="printNow()" class="nm-btn nm-btn-primary" style="padding:9px 16px;font-size:13px;">Print Now</button>
       </div>
     </div>
 
     <!-- Banners -->
-    <div id="print-success-banner" class="hidden p-3 bg-green-100 text-green-800 rounded-lg text-sm text-center">
-      Daily plan queued — it will print within 30 seconds.
-    </div>
-    <div id="print-error-banner" class="hidden p-3 bg-red-100 text-red-800 rounded-lg text-sm text-center">
-      Print failed: <span id="print-error-text"></span>
-    </div>
-    <div id="cal-success-banner" class="hidden p-3 bg-green-100 text-green-800 rounded-lg text-sm text-center">
-      Google Calendar connected!
-    </div>
-    <div id="cal-error-banner" class="hidden p-3 bg-red-100 text-red-800 rounded-lg text-sm text-center">
-      Google Calendar connection failed. Please try again.
-    </div>
+    <div id="print-success-banner" class="hidden nm-banner nm-banner-success mb-4">Daily plan queued — it will print within 30 seconds.</div>
+    <div id="print-error-banner"   class="hidden nm-banner nm-banner-error   mb-4">Print failed: <span id="print-error-text"></span></div>
+    <div id="cal-success-banner"   class="hidden nm-banner nm-banner-success mb-4">Google Calendar connected!</div>
+    <div id="cal-error-banner"     class="hidden nm-banner nm-banner-error   mb-4">Google Calendar connection failed. Please try again.</div>
 
-    <!-- Tomorrow's Preview -->
-    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
+    <!-- Tomorrow's Receipt -->
+    <div class="nm-card mb-5">
       <div class="flex items-center justify-between mb-4">
         <div>
-          <h2 class="text-base font-semibold text-gray-800">Tomorrow's Receipt</h2>
-          <p class="text-sm text-gray-500">Preview of what will print in the morning.</p>
+          <h2>Tomorrow's Receipt</h2>
+          <p style="margin-top:2px;">Preview of what will print in the morning.</p>
         </div>
-        <button onclick="loadPreview()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors underline">Refresh</button>
+        <button onclick="loadPreview()" class="nm-btn nm-btn-ghost">Refresh</button>
       </div>
-
-      <p id="preview-loading" class="text-gray-400 text-sm text-center py-6">Loading…</p>
-
+      <p id="preview-loading" style="color:var(--text-3);font-size:13px;text-align:center;padding:20px 0;">Loading…</p>
       <div id="preview-content" class="hidden">
-        <div class="bg-amber-50 border border-amber-100 rounded-xl p-4 overflow-x-auto">
-          <pre id="preview-text" class="font-mono text-xs text-gray-700 leading-relaxed whitespace-pre"></pre>
-        </div>
+        <div class="nm-receipt"><pre id="preview-text"></pre></div>
       </div>
-
-      <p id="preview-error" class="hidden text-red-400 text-sm text-center py-4"></p>
-    </section>
+      <p id="preview-error" class="hidden" style="color:#e05353;font-size:13px;text-align:center;padding:16px 0;"></p>
+    </div>
 
     <!-- Google Calendar -->
-    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
-      <h2 class="text-base font-semibold text-gray-800 mb-1">Google Calendar</h2>
-      <p class="text-sm text-gray-500 mb-4">When connected, your appointments appear as locked blocks on the daily receipt.</p>
-
+    <div class="nm-card mb-5">
+      <h2 style="margin-bottom:4px;">Google Calendar</h2>
+      <p style="margin-bottom:16px;">When connected, your appointments appear as locked blocks on the daily receipt.</p>
       <div id="cal-connected" class="hidden flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-          <span class="text-sm text-gray-700">Connected</span>
+          <div class="status-dot status-dot-green"></div>
+          <span style="font-size:13px;font-weight:500;">Connected</span>
         </div>
-        <button onclick="disconnectCalendar()" class="text-sm text-gray-400 hover:text-red-500 transition-colors underline">Disconnect</button>
+        <button onclick="disconnectCalendar()" class="nm-btn nm-btn-ghost nm-btn-danger" style="font-size:12px;">Disconnect</button>
       </div>
-
       <div id="cal-disconnected" class="hidden">
-        <a href="/auth/google" class="inline-block bg-white border border-gray-300 hover:border-gray-400 text-gray-700 text-sm px-4 py-2 rounded-lg font-medium transition-all hover:shadow-sm">
-          Connect Google Calendar
-        </a>
+        <a href="/auth/google" class="nm-btn" style="font-size:13px;">Connect Google Calendar</a>
       </div>
-    </section>
+    </div>
 
     <!-- Time Blocks -->
-    <section class="bg-white rounded-2xl shadow border border-gray-100 p-6">
-      <h2 class="text-base font-semibold text-gray-800 mb-1">Recurring Time Blocks</h2>
-      <p class="text-sm text-gray-500 mb-4">These repeat daily on your receipt. Calendar appointments take priority over any conflicts.</p>
+    <div class="nm-card">
+      <h2 style="margin-bottom:4px;">Recurring Time Blocks</h2>
+      <p style="margin-bottom:16px;">These repeat daily on your receipt. Calendar appointments take priority over any conflicts.</p>
+      <div id="blocks-list" style="margin-bottom:20px;"></div>
 
-      <div id="blocks-list" class="mb-5"></div>
+      <hr class="nm-divider" style="margin-bottom:20px;" />
 
-      <form onsubmit="addBlock(event)" class="space-y-3 pt-4 border-t border-gray-100">
-        <h3 class="text-sm font-medium text-gray-700">Add block</h3>
-        <input
-          id="block-label"
-          type="text"
-          placeholder="Label (e.g. Meditation)"
-          maxlength="60"
-          required
-          class="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-        />
+      <form onsubmit="addBlock(event)" class="space-y-3">
+        <p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:12px;">Add block</p>
+        <input id="block-label" class="nm-input" type="text" placeholder="Label (e.g. Meditation)" maxlength="60" required />
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs text-gray-500 mb-1">Start time</label>
-            <input
-              id="block-start"
-              type="time"
-              required
-              class="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-            />
+            <label class="nm-label">Start time</label>
+            <input id="block-start" class="nm-input" type="time" required />
           </div>
           <div>
-            <label class="block text-xs text-gray-500 mb-1">Duration</label>
-            <select id="block-duration" class="w-full p-3 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-300">
+            <label class="nm-label">Duration</label>
+            <select id="block-duration" class="nm-select">
               <option value="15">15 min</option>
               <option value="30">30 min</option>
               <option value="45">45 min</option>
@@ -281,12 +292,10 @@
             </select>
           </div>
         </div>
-        <button type="submit" class="w-full bg-gray-800 hover:bg-gray-700 text-white text-sm py-2.5 rounded-lg font-medium transition-all">
-          Add Block
-        </button>
+        <button type="submit" class="nm-btn nm-btn-primary" style="width:100%;padding:11px;">Add Block</button>
       </form>
-    </section>
+    </div>
 
-  </div>
+  </main>
 </body>
 </html>

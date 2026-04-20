@@ -1,17 +1,58 @@
 <!DOCTYPE html>
-<html lang="en" class="bg-gray-50 text-gray-900">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Settings — Life Receipt</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    :root {
+      --bg:#f0f0f3; --text:#3a3a4a; --text-2:#7a7a8a; --text-3:#b8b8c8;
+      --accent:#6366f1; --accent-bg:rgba(99,102,241,.1);
+      --sh-l:#ffffff; --sh-d:#d1d1d9;
+    }
+    *{box-sizing:border-box;}
+    body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+    h1{font-size:22px;font-weight:700;letter-spacing:-.3px;}
+    h2{font-size:14px;font-weight:600;color:var(--text);}
+    p{font-size:13px;line-height:1.5;color:var(--text-2);}
 
+    .nm-card{background:var(--bg);border-radius:22px;padding:22px;box-shadow:-8px -8px 16px var(--sh-l),8px 8px 16px var(--sh-d);}
+    .nm-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--bg);border:none;border-radius:12px;box-shadow:-4px -4px 10px var(--sh-l),4px 4px 10px var(--sh-d);color:var(--text);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;padding:10px 18px;transition:box-shadow .15s,transform .1s;text-decoration:none;white-space:nowrap;}
+    .nm-btn:hover{box-shadow:-5px -5px 12px var(--sh-l),5px 5px 12px var(--sh-d);}
+    .nm-btn:active{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px var(--sh-d);transform:scale(.98);}
+    .nm-btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none;}
+    .nm-btn-primary{background:var(--accent);color:#fff;box-shadow:-3px -3px 8px rgba(255,255,255,.5),4px 4px 10px rgba(80,80,200,.45);}
+    .nm-btn-primary:hover{background:#5254d4;}
+    .nm-btn-primary:active{background:#4b4cbf;box-shadow:inset -2px -2px 5px rgba(255,255,255,.25),inset 2px 2px 5px rgba(40,40,130,.4);}
+
+    .nm-input,.nm-select{background:var(--bg);border:none;border-radius:12px;box-shadow:inset -4px -4px 8px var(--sh-l),inset 4px 4px 8px var(--sh-d);color:var(--text);font-family:inherit;font-size:13px;outline:none;padding:11px 14px;width:100%;transition:box-shadow .15s;}
+    .nm-input:focus,.nm-select:focus{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px #c5c5d0,0 0 0 2px var(--accent-bg);}
+    .nm-input::placeholder{color:var(--text-3);}
+    .nm-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a7a8a' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;cursor:pointer;}
+
+    .nm-nav-wrap{position:sticky;top:0;z-index:20;background:var(--bg);padding:16px 16px 12px;}
+    .nm-nav-inner{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .nm-brand{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);text-decoration:none;opacity:.65;white-space:nowrap;flex-shrink:0;}
+    .nm-nav{display:flex;align-items:center;background:var(--bg);border-radius:100px;box-shadow:-5px -5px 10px var(--sh-l),5px 5px 10px var(--sh-d);padding:4px;gap:2px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+    .nm-nav::-webkit-scrollbar{display:none;}
+    .nm-nav a{border-radius:100px;padding:6px 13px;font-size:12px;font-weight:500;text-decoration:none;color:var(--text-2);white-space:nowrap;flex-shrink:0;transition:color .2s,box-shadow .2s;}
+    .nm-nav a:hover{color:var(--text);}
+    .nm-nav a.active{box-shadow:inset -2px -2px 5px var(--sh-l),inset 2px 2px 5px var(--sh-d);color:var(--accent);font-weight:600;}
+
+    .nm-banner{border-radius:12px;box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px var(--sh-d);padding:10px 14px;font-size:13px;text-align:center;font-weight:500;}
+    .nm-banner-success{color:#3da870;}
+    .nm-banner-error{color:#e05353;}
+    .nm-label{font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px;}
+    ::-webkit-scrollbar{width:4px;height:4px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--sh-d);border-radius:4px;}
+  </style>
+  <script>
     async function loadSettings() {
       const res = await fetch('/api/settings');
-      const s = await res.json();
-
+      const s   = await res.json();
       document.getElementById('daily_print_time').value  = s.daily_print_time  || '08:00';
       document.getElementById('day_start').value         = s.day_start         || '08:00';
       document.getElementById('day_end').value           = s.day_end           || '21:00';
@@ -23,24 +64,18 @@
 
     async function saveSettings(e) {
       e.preventDefault();
-      const form = e.target;
-      const btn = document.getElementById('save-btn');
+      const btn   = document.getElementById('save-btn');
       const saved = document.getElementById('saved-msg');
       const error = document.getElementById('error-msg');
-
-      btn.disabled = true;
-      btn.textContent = 'Saving…';
-      saved.classList.add('hidden');
-      error.classList.add('hidden');
-
+      btn.disabled = true; btn.textContent = 'Saving…';
+      saved.classList.add('hidden'); error.classList.add('hidden');
       try {
         const data = {};
         for (const id of ['daily_print_time','day_start','day_end','slot_size_minutes','week_wrapped_day','week_wrapped_time','timezone']) {
           data[id] = document.getElementById(id).value;
         }
         const res = await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
         if (!res.ok) throw new Error();
@@ -49,71 +84,84 @@
       } catch {
         error.classList.remove('hidden');
       } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save Settings';
+        btn.disabled = false; btn.textContent = 'Save Settings';
       }
     }
 
-    window.onload = loadSettings;
+    window.onload = () => {
+      document.querySelectorAll('.nm-nav a').forEach(a => { if (a.pathname === location.pathname) a.classList.add('active'); });
+      loadSettings();
+    };
   </script>
 </head>
-<body class="min-h-screen py-12 px-4 font-sans">
-  <div class="max-w-lg mx-auto">
-
-    <div class="flex items-center justify-between mb-10">
-      <h1 class="text-3xl font-semibold text-gray-900 tracking-tight">Settings</h1>
-      <a href="/" class="text-sm text-gray-500 hover:text-gray-800 transition-colors">← Back</a>
+<body>
+  <header class="nm-nav-wrap">
+    <div class="nm-nav-inner">
+      <a href="/" class="nm-brand">Life Receipt</a>
+      <nav class="nm-nav">
+        <a href="/">Home</a>
+        <a href="/daily">Daily</a>
+        <a href="/week-wrapped">Week Wrapped</a>
+        <a href="/archive">Archive</a>
+        <a href="/settings">Settings</a>
+      </nav>
     </div>
+  </header>
 
-    <form onsubmit="saveSettings(event)" class="space-y-8">
+  <main style="max-width:560px;margin:0 auto;padding:8px 16px 48px;">
+
+    <h1 style="margin-bottom:20px;">Settings</h1>
+
+    <form onsubmit="saveSettings(event)" class="space-y-5">
 
       <!-- Daily Print -->
-      <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Daily Print</h2>
-        <p class="text-sm text-gray-500">Your morning receipt will print at this time each day. (Active in Phase 2.)</p>
+      <div class="nm-card space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Print time</label>
-          <input type="time" id="daily_print_time" name="daily_print_time"
-            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
+          <h2>Daily Print</h2>
+          <p style="margin-top:2px;">Your morning receipt prints at this time each day.</p>
         </div>
-      </section>
+        <div>
+          <label class="nm-label" for="daily_print_time">Print time</label>
+          <input type="time" id="daily_print_time" class="nm-input" />
+        </div>
+      </div>
 
       <!-- Day Window -->
-      <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Day Window</h2>
-        <p class="text-sm text-gray-500">The time range shown on your daily planner receipt. (Active in Phase 2.)</p>
-        <div class="grid grid-cols-2 gap-4">
+      <div class="nm-card space-y-4">
+        <div>
+          <h2>Day Window</h2>
+          <p style="margin-top:2px;">The time range shown on your daily planner receipt.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Start</label>
-            <input type="time" id="day_start" name="day_start"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
+            <label class="nm-label" for="day_start">Start</label>
+            <input type="time" id="day_start" class="nm-input" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">End</label>
-            <input type="time" id="day_end" name="day_end"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
+            <label class="nm-label" for="day_end">End</label>
+            <input type="time" id="day_end" class="nm-input" />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Default blank slot size</label>
-          <select id="slot_size_minutes" name="slot_size_minutes"
-            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white">
+          <label class="nm-label" for="slot_size_minutes">Default blank slot size</label>
+          <select id="slot_size_minutes" class="nm-select">
             <option value="15">15 minutes</option>
             <option value="30">30 minutes</option>
             <option value="60">1 hour</option>
           </select>
         </div>
-      </section>
+      </div>
 
       <!-- Week Wrapped -->
-      <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Week, Wrapped</h2>
-        <p class="text-sm text-gray-500">When your weekly summary receipt prints. (Active in Phase 3.)</p>
-        <div class="grid grid-cols-2 gap-4">
+      <div class="nm-card space-y-4">
+        <div>
+          <h2>Week Wrapped</h2>
+          <p style="margin-top:2px;">When your weekly summary receipt prints.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Day</label>
-            <select id="week_wrapped_day" name="week_wrapped_day"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white">
+            <label class="nm-label" for="week_wrapped_day">Day</label>
+            <select id="week_wrapped_day" class="nm-select">
               <option value="0">Sunday</option>
               <option value="1">Monday</option>
               <option value="2">Tuesday</option>
@@ -124,21 +172,21 @@
             </select>
           </div>
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Time</label>
-            <input type="time" id="week_wrapped_time" name="week_wrapped_time"
-              class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400" />
+            <label class="nm-label" for="week_wrapped_time">Time</label>
+            <input type="time" id="week_wrapped_time" class="nm-input" />
           </div>
         </div>
-      </section>
+      </div>
 
       <!-- Timezone -->
-      <section class="bg-white rounded-2xl shadow border border-gray-100 p-6 space-y-4">
-        <h2 class="text-base font-semibold text-gray-800">Timezone</h2>
-        <p class="text-sm text-gray-500">Used for scheduling and calendar display.</p>
+      <div class="nm-card space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
-          <select id="timezone" name="timezone"
-            class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 bg-white">
+          <h2>Timezone</h2>
+          <p style="margin-top:2px;">Used for scheduling and calendar display.</p>
+        </div>
+        <div>
+          <label class="nm-label" for="timezone">Timezone</label>
+          <select id="timezone" class="nm-select">
             <option value="America/Los_Angeles">Pacific (PT)</option>
             <option value="America/Denver">Mountain (MT)</option>
             <option value="America/Chicago">Central (CT)</option>
@@ -151,19 +199,14 @@
             <option value="Australia/Sydney">Sydney (AEST)</option>
           </select>
         </div>
-      </section>
+      </div>
 
-      <button
-        id="save-btn"
-        type="submit"
-        class="w-full bg-gray-900 hover:bg-gray-800 disabled:opacity-50 text-white py-3 rounded-xl font-medium transition-all duration-200 hover:scale-[1.01] hover:shadow-lg"
-      >
-        Save Settings
-      </button>
+      <button id="save-btn" type="submit" class="nm-btn nm-btn-primary" style="width:100%;padding:13px;font-size:14px;">Save Settings</button>
 
-      <p id="saved-msg" class="hidden text-center text-green-600 text-sm font-medium">Settings saved.</p>
-      <p id="error-msg" class="hidden text-center text-red-500 text-sm">Something went wrong. Please try again.</p>
+      <p id="saved-msg" class="hidden nm-banner nm-banner-success">Settings saved.</p>
+      <p id="error-msg" class="hidden nm-banner nm-banner-error">Something went wrong. Please try again.</p>
+
     </form>
-  </div>
+  </main>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="bg-gray-50 text-gray-900">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,47 +7,111 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-  <script>
-    // ── Share link ──────────────────────────────────────────
-    async function copyShareLink() {
-      const res   = await fetch('/api/share-token');
-      const { token } = await res.json();
-      const url   = `${window.location.origin}/share/${token}`;
-      await navigator.clipboard.writeText(url);
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    :root {
+      --bg:#f0f0f3; --text:#3a3a4a; --text-2:#7a7a8a; --text-3:#b8b8c8;
+      --accent:#6366f1; --accent-bg:rgba(99,102,241,.1);
+      --sh-l:#ffffff; --sh-d:#d1d1d9;
+    }
+    *{box-sizing:border-box;}
+    body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
+    h2{font-size:15px;font-weight:600;color:var(--text);}
 
-      const btn = document.getElementById('copy-btn');
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = 'Copy share link'; }, 2000);
+    /* Cards */
+    .nm-card{background:var(--bg);border-radius:22px;padding:22px;box-shadow:-8px -8px 16px var(--sh-l),8px 8px 16px var(--sh-d);}
+
+    /* Buttons */
+    .nm-btn{display:inline-flex;align-items:center;justify-content:center;background:var(--bg);border:none;border-radius:12px;box-shadow:-4px -4px 10px var(--sh-l),4px 4px 10px var(--sh-d);color:var(--text);cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;padding:10px 18px;transition:box-shadow .15s,transform .1s;text-decoration:none;white-space:nowrap;}
+    .nm-btn:hover{box-shadow:-5px -5px 12px var(--sh-l),5px 5px 12px var(--sh-d);}
+    .nm-btn:active{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px var(--sh-d);transform:scale(.98);}
+    .nm-btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none;}
+    .nm-btn-primary{background:var(--accent);color:#fff;box-shadow:-3px -3px 8px rgba(255,255,255,.5),4px 4px 10px rgba(80,80,200,.45);}
+    .nm-btn-primary:hover{background:#5254d4;box-shadow:-3px -3px 8px rgba(255,255,255,.5),4px 4px 12px rgba(80,80,200,.5);}
+    .nm-btn-primary:active{background:#4b4cbf;box-shadow:inset -2px -2px 5px rgba(255,255,255,.25),inset 2px 2px 5px rgba(40,40,130,.4);}
+    .nm-btn-soft{color:var(--text-2);box-shadow:-3px -3px 8px var(--sh-l),3px 3px 8px var(--sh-d);}
+    .nm-btn-soft:hover{color:var(--text);}
+    .nm-btn-ghost{background:transparent;box-shadow:none;color:var(--text-3);padding:4px 8px;}
+    .nm-btn-ghost:hover{color:var(--text-2);box-shadow:none;}
+    .nm-btn-ghost:active{box-shadow:none;transform:none;}
+
+    /* Inputs */
+    .nm-input{background:var(--bg);border:none;border-radius:12px;box-shadow:inset -4px -4px 8px var(--sh-l),inset 4px 4px 8px var(--sh-d);color:var(--text);font-family:inherit;font-size:13px;outline:none;padding:11px 14px;width:100%;transition:box-shadow .15s;}
+    .nm-input:focus{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px #c5c5d0,0 0 0 2px var(--accent-bg);}
+    .nm-input::placeholder{color:var(--text-3);}
+
+    /* Nav */
+    .nm-nav-wrap{position:sticky;top:0;z-index:20;background:var(--bg);padding:16px 16px 12px;}
+    .nm-nav-inner{max-width:672px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+    .nm-brand{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-2);text-decoration:none;opacity:.65;white-space:nowrap;flex-shrink:0;}
+    .nm-nav{display:flex;align-items:center;background:var(--bg);border-radius:100px;box-shadow:-5px -5px 10px var(--sh-l),5px 5px 10px var(--sh-d);padding:4px;gap:2px;overflow-x:auto;-ms-overflow-style:none;scrollbar-width:none;}
+    .nm-nav::-webkit-scrollbar{display:none;}
+    .nm-nav a{border-radius:100px;padding:6px 13px;font-size:12px;font-weight:500;text-decoration:none;color:var(--text-2);white-space:nowrap;flex-shrink:0;transition:color .2s,box-shadow .2s;}
+    .nm-nav a:hover{color:var(--text);}
+    .nm-nav a.active{box-shadow:inset -2px -2px 5px var(--sh-l),inset 2px 2px 5px var(--sh-d);color:var(--accent);font-weight:600;}
+
+    /* Todo rows */
+    .todo-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(0,0,0,.04);}
+    .todo-row:last-child{border-bottom:none;}
+    .todo-text{flex:1;font-size:13px;color:var(--text);}
+    .done-text{color:var(--text-3);text-decoration:line-through;}
+    .drag-handle{color:var(--text-3);font-size:14px;cursor:grab;user-select:none;flex-shrink:0;transition:color .15s;line-height:1;}
+    .drag-handle:hover{color:var(--text-2);}
+    .drag-handle:active{cursor:grabbing;}
+    .del-btn{opacity:0;transition:opacity .2s;font-size:17px;color:var(--text-3);padding:3px 6px;background:transparent;border:none;cursor:pointer;flex-shrink:0;line-height:1;}
+    .del-btn:hover{color:#e05353;opacity:1!important;}
+    .todo-row:hover .del-btn{opacity:1;}
+
+    /* Checkboxes */
+    .nm-check{width:22px;height:22px;border-radius:7px;border:none;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:box-shadow .15s;}
+    .nm-check-off{background:var(--bg);box-shadow:-3px -3px 6px var(--sh-l),3px 3px 6px var(--sh-d);}
+    .nm-check-off:hover{box-shadow:-4px -4px 8px var(--sh-l),4px 4px 8px var(--sh-d);}
+    .nm-check-on{background:var(--accent-bg);box-shadow:inset -2px -2px 5px var(--sh-l),inset 2px 2px 5px var(--sh-d);color:var(--accent);}
+
+    /* Banners */
+    .nm-banner{border-radius:12px;box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px var(--sh-d);padding:10px 14px;font-size:13px;text-align:center;font-weight:500;}
+    .nm-banner-success{color:#3da870;}
+    .nm-banner-error{color:#e05353;}
+
+    /* Misc */
+    .nm-divider{border:none;height:1px;background:linear-gradient(90deg,transparent,var(--sh-d) 20%,var(--sh-d) 80%,transparent);opacity:.45;margin:2px 0;}
+    ::-webkit-scrollbar{width:4px;height:4px;}
+    ::-webkit-scrollbar-track{background:transparent;}
+    ::-webkit-scrollbar-thumb{background:var(--sh-d);border-radius:4px;}
+  </style>
+  <script>
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // ── Todos ───────────────────────────────────────────────
+    async function copyShareLink() {
+      const res = await fetch('/api/share-token');
+      const { token } = await res.json();
+      await navigator.clipboard.writeText(`${window.location.origin}/share/${token}`);
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Share link'; }, 2000);
+    }
+
     async function loadTodos() {
       const res   = await fetch('/api/todos');
       const todos = await res.json();
-
-      const incomplete = todos.filter(t => !t.completed);
-      const complete   = todos.filter(t =>  t.completed);
-
-      renderDo(incomplete);
-      renderDone(complete);
+      renderDo(todos.filter(t => !t.completed));
+      renderDone(todos.filter(t => t.completed));
     }
 
     function renderDo(todos) {
       const list = document.getElementById('do-list');
       if (todos.length === 0) {
-        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Nothing here yet.</p>';
+        list.innerHTML = '<p style="color:var(--text-3);font-size:13px;text-align:center;padding:20px 0;">Nothing here yet.</p>';
         return;
       }
       list.innerHTML = todos.map(todo => `
-        <div data-id="${todo.id}" class="flex items-center gap-2 py-2.5 border-b border-gray-100 last:border-0 group">
-          <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-200 hover:text-gray-400 select-none flex-shrink-0 text-base leading-none" title="Drag to reorder">⠿</span>
-          <button
-            onclick="toggleTodo(${todo.id})"
-            class="w-5 h-5 rounded border-2 border-gray-300 hover:border-gray-500 flex-shrink-0 flex items-center justify-center transition-colors"
-            title="Mark done"
-          ></button>
-          <span class="flex-1 text-gray-800 text-sm">${escHtml(todo.text)}</span>
-          <button onclick="deleteTodo(${todo.id})" class="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none">&times;</button>
+        <div data-id="${todo.id}" class="todo-row">
+          <span class="drag-handle" title="Drag to reorder">⠿</span>
+          <button onclick="toggleTodo(${todo.id})" class="nm-check nm-check-off" title="Mark done"></button>
+          <span class="todo-text">${escHtml(todo.text)}</span>
+          <button onclick="deleteTodo(${todo.id})" class="del-btn">&times;</button>
         </div>
       `).join('');
 
@@ -58,9 +122,8 @@
         onEnd: async () => {
           const ids = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
           await fetch('/api/todos/reorder', {
-            method:  'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ ids }),
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids }),
           });
         },
       });
@@ -70,24 +133,17 @@
       const list   = document.getElementById('done-list');
       const cutoff = Date.now() - 48 * 60 * 60 * 1000;
       const recent = todos.filter(t => t.completed_at && new Date(t.completed_at).getTime() > cutoff);
-
       if (recent.length === 0) {
-        list.innerHTML = '<p class="text-gray-400 text-sm text-center py-4">Nothing completed in the last 48 hours.</p>';
+        list.innerHTML = '<p style="color:var(--text-3);font-size:13px;text-align:center;padding:20px 0;">Nothing in the last 48 hours.</p>';
         return;
       }
       list.innerHTML = recent.map(todo => `
-        <div class="flex items-center gap-3 py-2.5 border-b border-gray-100 last:border-0 group">
-          <button
-            onclick="toggleTodo(${todo.id})"
-            class="w-5 h-5 rounded border-2 bg-gray-400 border-gray-400 flex-shrink-0 flex items-center justify-center transition-colors hover:bg-gray-300 hover:border-gray-300"
-            title="Mark undone"
-          >
-            <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-            </svg>
+        <div class="todo-row">
+          <button onclick="toggleTodo(${todo.id})" class="nm-check nm-check-on" title="Mark undone">
+            <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 3.5L3.5 6L9 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
-          <span class="flex-1 text-gray-400 text-sm line-through">${escHtml(todo.text)}</span>
-          <button onclick="deleteTodo(${todo.id})" class="text-gray-200 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 text-lg leading-none">&times;</button>
+          <span class="todo-text done-text">${escHtml(todo.text)}</span>
+          <button onclick="deleteTodo(${todo.id})" class="del-btn">&times;</button>
         </div>
       `).join('');
     }
@@ -96,36 +152,24 @@
       const input = document.getElementById('done-input');
       const text  = input.value.trim();
       if (!text) return;
-
       const res = await fetch('/api/todos', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ text, completed: true }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, completed: true }),
       });
-
-      if (res.ok) {
-        input.value = '';
-        loadTodos();
-      }
+      if (res.ok) { input.value = ''; loadTodos(); }
     }
 
-    async function addTodo(completed = false) {
+    async function addTodo() {
       const input = document.getElementById('todo-input');
       const text  = input.value.trim();
       if (!text) return;
-
       const res = await fetch('/api/todos', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ text, completed }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
       });
-
       if (res.ok) {
-        input.value = '';
-        loadTodos();
-        if (!completed) {
-          confetti({ particleCount: 40, spread: 50, origin: { y: 0.4 }, scalar: 0.7 });
-        }
+        input.value = ''; loadTodos();
+        confetti({ particleCount: 40, spread: 50, origin: { y: 0.4 }, scalar: 0.7 });
       }
     }
 
@@ -139,130 +183,105 @@
       loadTodos();
     }
 
-    // ── Instant Print ───────────────────────────────────────
     async function handlePrint(e) {
       e.preventDefault();
-      const btn     = document.getElementById('print-btn');
-      const input   = document.getElementById('print-input');
-      const success = document.getElementById('print-success');
-      const error   = document.getElementById('print-error');
-
-      btn.disabled = true;
-      error.classList.add('hidden');
-
+      const btn   = document.getElementById('print-btn');
+      const input = document.getElementById('print-input');
+      btn.disabled = true; btn.textContent = 'Sending…';
+      document.getElementById('print-error').classList.add('hidden');
       try {
         const res = await fetch('/print', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ message: input.value }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: input.value }),
         });
         if (!res.ok) throw new Error();
         input.value = '';
-        success.classList.remove('hidden');
-        setTimeout(() => success.classList.add('hidden'), 3000);
+        const s = document.getElementById('print-success');
+        s.classList.remove('hidden');
+        setTimeout(() => s.classList.add('hidden'), 3000);
       } catch {
-        error.classList.remove('hidden');
+        document.getElementById('print-error').classList.remove('hidden');
       } finally {
-        btn.disabled = false;
+        btn.disabled = false; btn.textContent = 'Send';
       }
     }
 
-    function escHtml(str) {
-      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
-
-    window.onload = loadTodos;
+    window.onload = () => {
+      document.querySelectorAll('.nm-nav a').forEach(a => { if (a.pathname === location.pathname) a.classList.add('active'); });
+      loadTodos();
+    };
   </script>
 </head>
-<body class="min-h-screen py-12 px-4 font-sans">
+<body>
+  <header class="nm-nav-wrap">
+    <div class="nm-nav-inner">
+      <a href="/" class="nm-brand">Life Receipt</a>
+      <nav class="nm-nav">
+        <a href="/">Home</a>
+        <a href="/daily">Daily</a>
+        <a href="/week-wrapped">Week Wrapped</a>
+        <a href="/archive">Archive</a>
+        <a href="/settings">Settings</a>
+      </nav>
+    </div>
+  </header>
 
-  <nav class="w-full max-w-2xl mx-auto flex justify-end mb-6 gap-4 text-sm text-gray-500">
-    <a href="/daily"         class="hover:text-gray-800 transition-colors">Daily Planner</a>
-    <a href="/week-wrapped"  class="hover:text-gray-800 transition-colors">Week Wrapped</a>
-    <a href="/settings"      class="hover:text-gray-800 transition-colors">Settings</a>
-  </nav>
+  <main style="max-width:672px;margin:0 auto;padding:8px 16px 48px;">
 
-  <main class="max-w-2xl mx-auto">
-    <h1 class="text-3xl font-semibold mb-8 text-gray-900 tracking-tight text-center">Life Receipt</h1>
-
-    <!-- Two-box layout -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
 
       <!-- DO -->
-      <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col">
+      <div class="nm-card flex flex-col">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-gray-900 tracking-tight">Do</h2>
-          <button id="copy-btn" onclick="copyShareLink()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Copy share link</button>
+          <h2>Do</h2>
+          <button id="copy-btn" onclick="copyShareLink()" class="nm-btn nm-btn-ghost" style="font-size:12px;">Share link</button>
         </div>
-
-        <div id="do-list" class="flex-1 mb-4 min-h-[80px]"></div>
-
-        <div class="pt-4 border-t border-gray-100 space-y-2">
-          <input
-            id="todo-input"
-            type="text"
-            placeholder="Add a task…"
-            maxlength="100"
-            onkeypress="if(event.key==='Enter'){event.preventDefault();addTodo(false)}"
-            class="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
-          />
-          <button
-            onclick="addTodo(false)"
-            class="w-full bg-gray-900 hover:bg-gray-700 text-white text-xs py-2 rounded-lg font-medium transition-all"
-          >+ Add to Do</button>
-        </div>
+        <div id="do-list" class="flex-1" style="min-height:72px;"></div>
+        <div style="margin:14px 0 16px;"><hr class="nm-divider" /></div>
+        <input
+          id="todo-input" class="nm-input" type="text"
+          placeholder="Add a task…" maxlength="100"
+          onkeypress="if(event.key==='Enter'){event.preventDefault();addTodo()}"
+          style="margin-bottom:10px;"
+        />
+        <button onclick="addTodo()" class="nm-btn nm-btn-primary" style="width:100%;padding:11px;">+ Add to Do</button>
       </div>
 
       <!-- DONE -->
-      <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 flex flex-col">
+      <div class="nm-card flex flex-col">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-semibold text-gray-900 tracking-tight">Done</h2>
-          <a href="/archive" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Archive →</a>
+          <h2>Done</h2>
+          <a href="/archive" class="nm-btn nm-btn-ghost" style="font-size:12px;">Archive →</a>
         </div>
-        <div id="done-list" class="flex-1 min-h-[80px]"></div>
-        <div class="pt-4 border-t border-gray-100">
-          <input
-            id="done-input"
-            type="text"
-            placeholder="Log something completed…"
-            onkeypress="if(event.key==='Enter'){event.preventDefault();addDone()}"
-            class="w-full p-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300 mb-2"
-          />
-          <button
-            onclick="addDone()"
-            class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-medium transition-all"
-          >✓ Mark as Done</button>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- Instant Print (secondary) -->
-    <div class="bg-white rounded-2xl shadow border border-gray-100 p-6">
-      <h2 class="text-base font-semibold text-gray-800 mb-3">Print a receipt</h2>
-      <div class="flex gap-2">
+        <div id="done-list" class="flex-1" style="min-height:72px;"></div>
+        <div style="margin:14px 0 16px;"><hr class="nm-divider" /></div>
         <input
-          id="print-input"
-          type="text"
-          maxlength="200"
-          placeholder="Type anything to print…"
-          onkeypress="if(event.key==='Enter') handlePrint(event)"
-          class="flex-1 p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
+          id="done-input" class="nm-input" type="text"
+          placeholder="Log something completed…"
+          onkeypress="if(event.key==='Enter'){event.preventDefault();addDone()}"
+          style="margin-bottom:10px;"
         />
-        <button
-          id="print-btn"
-          onclick="handlePrint(event)"
-          class="bg-gray-900 hover:bg-gray-700 disabled:opacity-50 text-white text-sm px-5 rounded-lg font-medium transition-all"
-        >Send</button>
+        <button onclick="addDone()" class="nm-btn nm-btn-soft" style="width:100%;padding:11px;">✓ Mark as Done</button>
       </div>
-      <p id="print-success" class="hidden mt-2 text-green-600 text-sm">Queued — printing shortly.</p>
-      <p id="print-error"   class="hidden mt-2 text-red-500 text-sm">Something went wrong. Try again.</p>
     </div>
+
+    <!-- Print -->
+    <div class="nm-card">
+      <h2 style="margin-bottom:14px;">Print a receipt</h2>
+      <div class="flex gap-3">
+        <input
+          id="print-input" class="nm-input" type="text"
+          maxlength="200" placeholder="Type anything to print…"
+          onkeypress="if(event.key==='Enter') handlePrint(event)"
+        />
+        <button id="print-btn" onclick="handlePrint(event)" class="nm-btn nm-btn-primary" style="flex-shrink:0;padding:11px 20px;">Send</button>
+      </div>
+      <p id="print-success" class="hidden nm-banner nm-banner-success" style="margin-top:12px;">Queued — printing shortly.</p>
+      <p id="print-error"   class="hidden nm-banner nm-banner-error"   style="margin-top:12px;">Something went wrong. Try again.</p>
+    </div>
+
   </main>
 
-  <footer class="text-sm text-gray-400 mt-16 text-center">
-    Made by Skye Gaertner
-  </footer>
-
+  <footer style="text-align:center;padding:0 0 32px;font-size:12px;color:var(--text-3);">Made by Skye Gaertner</footer>
 </body>
 </html>
