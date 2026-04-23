@@ -63,6 +63,28 @@ async function generateSummary(accomplishments, goals) {
 }
 
 // ============================================================
+// Daily summary — one sentence overview of a day's completed work
+// ============================================================
+
+async function generateDailySummary(todos) {
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const list   = todos.map(t => `- ${t.text}`).join('\n');
+
+  const msg = await client.messages.create({
+    model:      'claude-haiku-4-5-20251001',
+    max_tokens: 80,
+    messages:   [{
+      role:    'user',
+      content: `Based on these completed tasks, write exactly ONE short sentence describing the general theme of what was worked on. Focus on the category of work, not specific details. No preamble, no quotes.\n\n${list}`,
+    }],
+  });
+
+  return msg.content[0].text.trim();
+}
+
+// ============================================================
 // Main entry point
 // ============================================================
 
@@ -102,4 +124,4 @@ async function generateWeekWrappedContent() {
   return lines.join('\n');
 }
 
-module.exports = { generateWeekWrappedContent };
+module.exports = { generateWeekWrappedContent, generateDailySummary };

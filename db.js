@@ -47,6 +47,13 @@ db.exec(`
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS daily_summaries (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    date       TEXT NOT NULL UNIQUE,
+    summary    TEXT NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
   CREATE TABLE IF NOT EXISTS oauth_tokens (
     id            INTEGER PRIMARY KEY CHECK (id = 1),
     access_token  TEXT,
@@ -77,6 +84,7 @@ const defaults = {
   last_daily_print_date:   '',
   daily_print_enabled:     'true',
   last_week_wrapped_date:  '',
+  last_daily_summary_date: '',
 };
 
 for (const [key, value] of Object.entries(defaults)) {

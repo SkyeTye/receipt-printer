@@ -49,6 +49,23 @@ function getLocalTime(timezone) {
   };
 }
 
+// Returns { start, end } as UTC ISO strings bounding midnight-to-midnight of localDateStr in timezone.
+// Uses the noon-UTC trick: at noon UTC on the given date, local time tells us the UTC offset.
+function getLocalDayUTCBounds(localDateStr, timezone) {
+  const noonUTC = new Date(`${localDateStr}T12:00:00Z`);
+  const parts   = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(noonUTC);
+  const h = parseInt(parts.find(p => p.type === 'hour').value);
+  const m = parseInt(parts.find(p => p.type === 'minute').value);
+  const s = parseInt(parts.find(p => p.type === 'second').value);
+  const localMidnight = new Date(noonUTC.getTime() - (h * 3600 + m * 60 + s) * 1000);
+  return {
+    start: localMidnight.toISOString(),
+    end:   new Date(localMidnight.getTime() + 86400000).toISOString(),
+  };
+}
+
 // Convert an ISO datetime string to minutes-since-midnight in a timezone
 function isoToLocalMinutes(isoStr, timezone) {
   const date = new Date(isoStr);
@@ -275,4 +292,5 @@ module.exports = {
   getLocalTime,
   getAllSettings,
   getTomorrowDateStr,
+  getLocalDayUTCBounds,
 };

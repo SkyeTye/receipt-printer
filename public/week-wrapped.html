@@ -30,9 +30,10 @@
     .nm-btn-ghost:hover{color:var(--text-2);box-shadow:none;}
     .nm-btn-ghost:active{box-shadow:none;transform:none;}
 
-    .nm-input{background:var(--bg);border:none;border-radius:12px;box-shadow:inset -4px -4px 8px var(--sh-l),inset 4px 4px 8px var(--sh-d);color:var(--text);font-family:inherit;font-size:13px;outline:none;padding:11px 14px;width:100%;transition:box-shadow .15s;}
-    .nm-input:focus{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px #c5c5d0,0 0 0 2px var(--accent-bg);}
-    .nm-input::placeholder{color:var(--text-3);}
+    .nm-input,.nm-textarea{background:var(--bg);border:none;border-radius:12px;box-shadow:inset -4px -4px 8px var(--sh-l),inset 4px 4px 8px var(--sh-d);color:var(--text);font-family:inherit;font-size:13px;outline:none;padding:11px 14px;width:100%;transition:box-shadow .15s;}
+    .nm-input:focus,.nm-textarea:focus{box-shadow:inset -3px -3px 6px var(--sh-l),inset 3px 3px 6px #c5c5d0,0 0 0 2px var(--accent-bg);}
+    .nm-input::placeholder,.nm-textarea::placeholder{color:var(--text-3);}
+    .nm-textarea{resize:none;overflow:hidden;line-height:1.5;}
 
     .nm-nav-wrap{position:sticky;top:0;z-index:20;background:var(--bg);padding:16px 16px 12px;}
     .nm-nav-inner{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;}
@@ -93,18 +94,26 @@
       `).join('');
     }
 
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+
     function startEditGoal(id) {
       const textEl  = document.getElementById(`goal-text-${id}`);
       const current = textEl.textContent;
       textEl.outerHTML = `
-        <input id="goal-edit-${id}" type="text" value="${escHtml(current)}" maxlength="150"
-          class="nm-input flex-1" style="padding:7px 10px;"
-          onkeydown="if(event.key==='Enter') saveGoalEdit(${id}); if(event.key==='Escape') loadGoals();" />
+        <textarea id="goal-edit-${id}"
+          class="nm-textarea flex-1" style="padding:7px 10px;min-height:38px;"
+          oninput="autoResize(this)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveGoalEdit(${id})} if(event.key==='Escape') loadGoals();"
+        >${escHtml(current)}</textarea>
       `;
       const row = document.getElementById(`goal-row-${id}`);
       row.querySelector('button[onclick*="startEditGoal"]').outerHTML =
         `<button onclick="saveGoalEdit(${id})" class="nm-btn nm-btn-ghost" style="font-size:12px;padding:3px 8px;color:var(--accent);font-weight:600;">Save</button>`;
-      document.getElementById(`goal-edit-${id}`)?.focus();
+      const ta = document.getElementById(`goal-edit-${id}`);
+      if (ta) { autoResize(ta); ta.focus(); }
     }
 
     async function saveGoalEdit(id) {
@@ -138,7 +147,7 @@
 
     // ── This Week ──────────────────────────────────
     async function loadThisWeek() {
-      const res   = await fetch('/api/accomplishments');
+      const res   = await fetch('/api/daily-summaries');
       const items = await res.json();
       renderThisWeek(items);
     }
@@ -146,28 +155,20 @@
     function renderThisWeek(items) {
       const container = document.getElementById('this-week-list');
       if (items.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-3);font-size:13px;text-align:center;padding:16px 0;">Nothing completed yet this week.</p>';
+        container.innerHTML = '<p style="color:var(--text-3);font-size:13px;text-align:center;padding:16px 0;">Daily overviews appear here each evening.</p>';
         return;
       }
-      const groups = {};
-      for (const item of items) {
-        const key = new Date(item.completed_at || item.created_at).toLocaleDateString('en-US', {
+      container.innerHTML = items.map(item => {
+        const label = new Date(item.date + 'T12:00:00').toLocaleDateString('en-US', {
           weekday: 'long', month: 'short', day: 'numeric',
         });
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(item);
-      }
-      container.innerHTML = Object.entries(groups).reverse().map(([day, entries]) => `
-        <div style="margin-bottom:18px;">
-          <p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:8px;">${day}</p>
-          ${entries.map(e => `
-            <div class="flex items-start gap-2" style="padding:6px 0;border-bottom:1px solid rgba(0,0,0,.04);">
-              <span style="color:var(--text-3);font-size:12px;margin-top:1px;flex-shrink:0;">✓</span>
-              <span style="font-size:13px;color:var(--text);">${escHtml(e.text)}</span>
-            </div>
-          `).join('')}
-        </div>
-      `).join('');
+        return `
+          <div style="padding:10px 0;border-bottom:1px solid rgba(0,0,0,.04);">
+            <p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin-bottom:5px;">${label}</p>
+            <p style="font-size:13px;color:var(--text);line-height:1.5;">${escHtml(item.summary)}</p>
+          </div>
+        `;
+      }).join('');
     }
 
     // ── Print ──────────────────────────────────────
@@ -226,9 +227,17 @@
       <p style="margin-bottom:16px;">Claude uses these to frame your weekly summary. Hover a goal to edit or remove it.</p>
       <div id="goals-list"></div>
       <hr class="nm-divider" style="margin:14px 0 16px;" />
-      <form onsubmit="addGoal(event)" class="flex gap-2">
-        <input id="goal-input" class="nm-input" type="text" placeholder="Add a goal…" maxlength="150" />
-        <button type="submit" class="nm-btn nm-btn-primary" style="flex-shrink:0;padding:11px 16px;">Add</button>
+      <form onsubmit="addGoal(event)" class="space-y-2">
+        <textarea
+          id="goal-input"
+          class="nm-textarea"
+          placeholder="Add a goal…"
+          rows="3"
+          style="min-height:72px;"
+          oninput="autoResize(this)"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addGoal(event)}"
+        ></textarea>
+        <button type="submit" class="nm-btn nm-btn-primary" style="width:100%;padding:11px;">Add Goal</button>
       </form>
     </div>
 

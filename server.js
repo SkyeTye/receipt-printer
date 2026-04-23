@@ -3,7 +3,7 @@ const path    = require('path');
 const cron    = require('node-cron');
 const crypto  = require('crypto');
 const db      = require('./db');
-const { generateWeekWrappedContent } = require('./week-wrapped');
+const { generateWeekWrappedContent, generateDailySummary } = require('./week-wrapped');
 
 // Ensure a share token exists (generated once, persisted in settings)
 if (!db.prepare('SELECT value FROM settings WHERE key = ?').get('share_token')) {
@@ -11,7 +11,7 @@ if (!db.prepare('SELECT value FROM settings WHERE key = ?').get('share_token')) 
     'share_token', crypto.randomBytes(16).toString('hex')
   );
 }
-const { generateDailyPrintContent, getOAuthClient, getLocalTime, getAllSettings, getTomorrowDateStr } = require('./daily-print');
+const { generateDailyPrintContent, getOAuthClient, getLocalTime, getAllSettings, getTomorrowDateStr, getLocalDayUTCBounds } = require('./daily-print');
 
 const app = express();
 
@@ -194,6 +194,19 @@ app.post('/api/accomplishments', (req, res) => {
 app.delete('/api/accomplishments/:id', (req, res) => {
   db.prepare('DELETE FROM accomplishments WHERE id = ?').run(parseInt(req.params.id, 10));
   res.json({ success: true });
+});
+
+// ============================================================
+// Daily Summaries API
+// ============================================================
+
+app.get('/api/daily-summaries', (req, res) => {
+  const lastWrap     = db.prepare("SELECT value FROM settings WHERE key = 'last_week_wrapped_date'").get()?.value || '';
+  const lastWrapDate = lastWrap ? lastWrap.split('T')[0] : null;
+  const rows = lastWrapDate
+    ? db.prepare('SELECT * FROM daily_summaries WHERE date > ? ORDER BY date DESC').all(lastWrapDate)
+    : db.prepare("SELECT * FROM daily_summaries WHERE date > date('now','-7 days') ORDER BY date DESC").all();
+  res.json(rows);
 });
 
 // ============================================================
@@ -390,6 +403,22 @@ cron.schedule('* * * * *', async () => {
       db.prepare('INSERT INTO print_queue (content) VALUES (?)').run(content);
       db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('last_daily_print_date', today);
       console.log('[cron] Daily print queued');
+    }
+
+    // ── Daily summary (10 PM) ────────────────────────────
+    if (hour === 22 && minute === 0 && s.last_daily_summary_date !== today) {
+      const { start, end } = getLocalDayUTCBounds(today, timezone);
+      const completed = db.prepare(
+        'SELECT * FROM todos WHERE completed = 1 AND completed_at >= ? AND completed_at < ? ORDER BY completed_at ASC'
+      ).all(start, end);
+      if (completed.length > 0) {
+        const summary = await generateDailySummary(completed);
+        if (summary) {
+          db.prepare('INSERT OR REPLACE INTO daily_summaries (date, summary) VALUES (?, ?)').run(today, summary);
+          console.log(`[cron] Daily summary saved for ${today}`);
+        }
+      }
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('last_daily_summary_date', ?)").run(today);
     }
 
     // ── Week Wrapped ─────────────────────────────────────
