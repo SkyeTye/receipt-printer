@@ -32,7 +32,8 @@ db.exec(`
     completed    INTEGER NOT NULL DEFAULT 0,
     created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     completed_at DATETIME,
-    position     INTEGER NOT NULL DEFAULT 0
+    position     INTEGER NOT NULL DEFAULT 0,
+    pinned       INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS goals (
@@ -67,8 +68,11 @@ db.exec(`
 // Migrations — safe to run on existing databases
 try {
   db.exec('ALTER TABLE todos ADD COLUMN position INTEGER NOT NULL DEFAULT 0');
-  // Initialize positions from insertion order so existing todos stay in place
   db.exec('UPDATE todos SET position = id');
+} catch (_) { /* column already exists */ }
+
+try {
+  db.exec('ALTER TABLE todos ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0');
 } catch (_) { /* column already exists */ }
 
 // Seed defaults (INSERT OR IGNORE — never overwrites existing values)

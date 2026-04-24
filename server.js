@@ -127,7 +127,7 @@ app.delete('/api/time-blocks/:id', (req, res) => {
 
 app.get('/api/todos', (req, res) => {
   const todos = db.prepare(
-    'SELECT * FROM todos ORDER BY completed ASC, position ASC, created_at ASC'
+    'SELECT * FROM todos ORDER BY completed ASC, pinned DESC, position ASC, created_at ASC'
   ).all();
   res.json(todos);
 });
@@ -160,10 +160,21 @@ app.post('/api/todos/:id/complete', (req, res) => {
   if (!todo) return res.status(404).json({ error: 'Not found' });
 
   const nowCompleted = todo.completed ? 0 : 1;
-  db.prepare(
-    'UPDATE todos SET completed = ?, completed_at = ? WHERE id = ?'
-  ).run(nowCompleted, nowCompleted ? new Date().toISOString() : null, id);
+  if (nowCompleted) {
+    db.prepare('UPDATE todos SET completed = 1, completed_at = ?, pinned = 0 WHERE id = ?').run(new Date().toISOString(), id);
+  } else {
+    db.prepare('UPDATE todos SET completed = 0, completed_at = NULL WHERE id = ?').run(id);
+  }
   res.json({ success: true, completed: !!nowCompleted });
+});
+
+app.post('/api/todos/:id/pin', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const todo = db.prepare('SELECT pinned FROM todos WHERE id = ?').get(id);
+  if (!todo) return res.status(404).json({ error: 'Not found' });
+  const newPinned = todo.pinned ? 0 : 1;
+  db.prepare('UPDATE todos SET pinned = ? WHERE id = ?').run(newPinned, id);
+  res.json({ success: true, pinned: !!newPinned });
 });
 
 app.delete('/api/todos/:id', (req, res) => {

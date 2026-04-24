@@ -73,6 +73,15 @@
     .nm-banner-success{color:#3da870;}
     .nm-banner-error{color:#e05353;}
 
+    /* Pinned todos */
+    .todo-row.pinned{border-left:2.5px solid var(--accent);padding-left:10px;margin-left:-12px;}
+    .todo-row.pinned .drag-handle{color:var(--accent);opacity:.55;}
+    .todo-row.pinned .todo-text{font-weight:600;}
+    .priority-label{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);opacity:.7;margin-bottom:6px;display:block;}
+
+    /* Long-press feedback */
+    .nm-check.pressing{box-shadow:inset -2px -2px 5px var(--sh-l),inset 2px 2px 5px var(--sh-d);transform:scale(.88);background:var(--accent-bg);}
+
     /* Misc */
     .nm-divider{border:none;height:1px;background:linear-gradient(90deg,transparent,var(--sh-d) 20%,var(--sh-d) 80%,transparent);opacity:.45;margin:2px 0;}
     ::-webkit-scrollbar{width:4px;height:4px;}
@@ -100,33 +109,97 @@
       renderDone(todos.filter(t => t.completed));
     }
 
-    function renderDo(todos) {
-      const list = document.getElementById('do-list');
-      if (todos.length === 0) {
-        list.innerHTML = '<p style="color:var(--text-3);font-size:13px;text-align:center;padding:20px 0;">Nothing here yet.</p>';
-        return;
+    // ── Long-press to pin ──────────────────────────────────
+    let _pressTimer = null;
+
+    function startPress(id, el) {
+      el.classList.add('pressing');
+      _pressTimer = setTimeout(() => {
+        _pressTimer = null;
+        el.classList.remove('pressing');
+        togglePin(id);
+      }, 600);
+    }
+
+    function endPress(id, el, doComplete) {
+      if (_pressTimer) {
+        clearTimeout(_pressTimer);
+        _pressTimer = null;
+        el.classList.remove('pressing');
+        if (doComplete) toggleTodo(id);
+      } else {
+        el.classList.remove('pressing');
       }
-      list.innerHTML = todos.map(todo => `
-        <div data-id="${todo.id}" class="todo-row">
+    }
+
+    async function togglePin(id) {
+      await fetch(`/api/todos/${id}/pin`, { method: 'POST' });
+      loadTodos();
+    }
+
+    function todoRowHtml(todo) {
+      const pinned = todo.pinned ? 'pinned' : '';
+      return `
+        <div data-id="${todo.id}" class="todo-row ${pinned}">
           <span class="drag-handle" title="Drag to reorder">⠿</span>
-          <button onclick="toggleTodo(${todo.id})" class="nm-check nm-check-off" title="Mark done"></button>
+          <button
+            class="nm-check nm-check-off"
+            title="Tap to complete · Hold to pin"
+            onpointerdown="startPress(${todo.id}, this)"
+            onpointerup="endPress(${todo.id}, this, true)"
+            onpointerleave="endPress(${todo.id}, this, false)"
+            oncontextmenu="return false"
+          ></button>
           <span class="todo-text">${escHtml(todo.text)}</span>
           <button onclick="deleteTodo(${todo.id})" class="del-btn">&times;</button>
         </div>
-      `).join('');
+      `;
+    }
 
-      Sortable.create(list, {
+    function makeSortable(listEl) {
+      Sortable.create(listEl, {
         handle: '.drag-handle',
         animation: 150,
         ghostClass: 'opacity-40',
-        onEnd: async () => {
-          const ids = [...list.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
-          await fetch('/api/todos/reorder', {
+        onEnd: () => {
+          const ids = [...listEl.querySelectorAll('[data-id]')].map(el => parseInt(el.dataset.id));
+          fetch('/api/todos/reorder', {
             method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids }),
           });
         },
       });
+    }
+
+    function renderDo(todos) {
+      const pinnedSection = document.getElementById('pinned-section');
+      const pinnedList    = document.getElementById('pinned-list');
+      const unpinnedList  = document.getElementById('unpinned-list');
+      const emptyState    = document.getElementById('do-empty');
+
+      const pinned   = todos.filter(t => t.pinned);
+      const unpinned = todos.filter(t => !t.pinned);
+
+      if (todos.length === 0) {
+        pinnedSection.classList.add('hidden');
+        pinnedList.innerHTML = '';
+        unpinnedList.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      emptyState.classList.add('hidden');
+
+      if (pinned.length > 0) {
+        pinnedSection.classList.remove('hidden');
+        pinnedList.innerHTML = pinned.map(todoRowHtml).join('');
+        makeSortable(pinnedList);
+      } else {
+        pinnedSection.classList.add('hidden');
+        pinnedList.innerHTML = '';
+      }
+
+      unpinnedList.innerHTML = unpinned.map(todoRowHtml).join('');
+      if (unpinned.length > 0) makeSortable(unpinnedList);
     }
 
     function renderDone(todos) {
@@ -236,7 +309,15 @@
           <h2>Do</h2>
           <button id="copy-btn" onclick="copyShareLink()" class="nm-btn nm-btn-ghost" style="font-size:12px;">Share link</button>
         </div>
-        <div id="do-list" class="flex-1" style="min-height:72px;"></div>
+        <div class="flex-1" style="min-height:72px;">
+          <div id="pinned-section" class="hidden">
+            <span class="priority-label">Priority</span>
+            <div id="pinned-list"></div>
+            <hr class="nm-divider" style="margin:8px 0 10px;" />
+          </div>
+          <div id="unpinned-list"></div>
+          <p id="do-empty" class="hidden" style="color:var(--text-3);font-size:13px;text-align:center;padding:20px 0;">Nothing here yet.</p>
+        </div>
         <div style="margin:14px 0 16px;"><hr class="nm-divider" /></div>
         <input
           id="todo-input" class="nm-input" type="text"
