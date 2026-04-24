@@ -211,6 +211,27 @@ app.delete('/api/accomplishments/:id', (req, res) => {
 // Daily Summaries API
 // ============================================================
 
+app.post('/api/daily-summary/trigger', async (req, res) => {
+  try {
+    const s        = getAllSettings();
+    const timezone = s.timezone || 'America/Los_Angeles';
+    const today    = new Intl.DateTimeFormat('en-CA', { timeZone: timezone }).format(new Date());
+    const { start, end } = getLocalDayUTCBounds(today, timezone);
+    const completed = db.prepare(
+      'SELECT * FROM todos WHERE completed = 1 AND completed_at >= ? AND completed_at < ? ORDER BY completed_at ASC'
+    ).all(start, end);
+    if (completed.length === 0) return res.status(400).json({ error: 'No completed tasks today to summarize.' });
+    const summary = await generateDailySummary(completed);
+    if (!summary) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured.' });
+    db.prepare('INSERT OR REPLACE INTO daily_summaries (date, summary) VALUES (?, ?)').run(today, summary);
+    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('last_daily_summary_date', ?)").run(today);
+    res.json({ success: true, summary });
+  } catch (err) {
+    console.error('Daily summary trigger error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/daily-summaries', (req, res) => {
   const lastWrap     = db.prepare("SELECT value FROM settings WHERE key = 'last_week_wrapped_date'").get()?.value || '';
   const lastWrapDate = lastWrap ? lastWrap.split('T')[0] : null;

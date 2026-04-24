@@ -171,6 +171,24 @@
       }).join('');
     }
 
+    // ── Daily Summary trigger ──────────────────────
+    async function generateTodaySummary() {
+      const btn = document.getElementById('summary-btn');
+      btn.disabled = true; btn.textContent = 'Generating…';
+      try {
+        const res  = await fetch('/api/daily-summary/trigger', { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Unknown error');
+        showBanner('print-success-banner');
+        loadThisWeek();
+      } catch (err) {
+        document.getElementById('print-error-text').textContent = err.message;
+        showBanner('print-error-banner', 6000);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Generate Today\'s Summary';
+      }
+    }
+
     // ── Print ──────────────────────────────────────
     async function printNow() {
       const btn = document.getElementById('print-now-btn');
@@ -243,7 +261,10 @@
 
     <!-- This Week -->
     <div class="nm-card">
-      <h2 style="margin-bottom:4px;">This Week</h2>
+      <div class="flex items-center justify-between" style="margin-bottom:4px;">
+        <h2>This Week</h2>
+        <button id="summary-btn" onclick="generateTodaySummary()" class="nm-btn nm-btn-ghost" style="font-size:12px;">Generate Today's Summary</button>
+      </div>
       <p style="margin-bottom:16px;">Everything you've completed since the last wrap. Log things from the <a href="/" style="color:var(--accent);text-decoration:none;font-weight:500;">home page</a>.</p>
       <div id="this-week-list"></div>
     </div>
