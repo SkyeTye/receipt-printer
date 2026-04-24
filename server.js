@@ -221,7 +221,8 @@ app.post('/api/daily-summary/trigger', async (req, res) => {
       'SELECT * FROM todos WHERE completed = 1 AND completed_at >= ? AND completed_at < ? ORDER BY completed_at ASC'
     ).all(start, end);
     if (completed.length === 0) return res.status(400).json({ error: 'No completed tasks today to summarize.' });
-    const summary = await generateDailySummary(completed);
+    const pending = db.prepare('SELECT * FROM todos WHERE completed = 0 ORDER BY pinned DESC, position ASC').all();
+    const summary = await generateDailySummary(completed, pending);
     if (!summary) return res.status(503).json({ error: 'ANTHROPIC_API_KEY not configured.' });
     db.prepare('INSERT OR REPLACE INTO daily_summaries (date, summary) VALUES (?, ?)').run(today, summary);
     db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('last_daily_summary_date', ?)").run(today);
@@ -444,7 +445,8 @@ cron.schedule('* * * * *', async () => {
         'SELECT * FROM todos WHERE completed = 1 AND completed_at >= ? AND completed_at < ? ORDER BY completed_at ASC'
       ).all(start, end);
       if (completed.length > 0) {
-        const summary = await generateDailySummary(completed);
+        const pending = db.prepare('SELECT * FROM todos WHERE completed = 0 ORDER BY pinned DESC, position ASC').all();
+        const summary = await generateDailySummary(completed, pending);
         if (summary) {
           db.prepare('INSERT OR REPLACE INTO daily_summaries (date, summary) VALUES (?, ?)').run(today, summary);
           console.log(`[cron] Daily summary saved for ${today}`);

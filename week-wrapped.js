@@ -66,19 +66,30 @@ async function generateSummary(accomplishments, goals) {
 // Daily summary — one sentence overview of a day's completed work
 // ============================================================
 
-async function generateDailySummary(todos) {
+async function generateDailySummary(completed, pending) {
   if (!process.env.ANTHROPIC_API_KEY) return null;
 
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const list   = todos.map(t => `- ${t.text}`).join('\n');
+  const client       = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const completedList = completed.map(t => `- ${t.text}`).join('\n');
+  const pendingList   = pending.map(t => `- ${t.text}`).join('\n');
+
+  const prompt = [
+    'Write exactly TWO short sentences — no labels, no preamble, no quotes:',
+    '1. One sentence on what was worked on today (from completed tasks). Focus on the category of work, not specific details.',
+    '2. One sentence on what is coming up next (from pending tasks). Focus on the general theme.',
+    'Return only the two sentences, each on its own line.',
+    '',
+    'Completed today:',
+    completedList,
+    '',
+    'Pending tasks:',
+    pendingList || '(none)',
+  ].join('\n');
 
   const msg = await client.messages.create({
     model:      'claude-haiku-4-5-20251001',
-    max_tokens: 80,
-    messages:   [{
-      role:    'user',
-      content: `Based on these completed tasks, write exactly ONE short sentence describing the general theme of what was worked on. Focus on the category of work, not specific details. No preamble, no quotes.\n\n${list}`,
-    }],
+    max_tokens: 120,
+    messages:   [{ role: 'user', content: prompt }],
   });
 
   return msg.content[0].text.trim();
